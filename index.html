@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  />
+  <title>하임팡 for My Love</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#ff8fb1" />
+
+  <!-- Game styles -->
+  <link rel="stylesheet" href="haimpang.css" />
+</head>
+<body>
+<!-- Panel: HTML (CodePen HTML에 그대로 전체 복붙) -->
+
+<!-- External libs (QR generate + QR scan) -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
+<div id="app">
+  <header class="topbar">
+    <div class="pill left">
+      <span class="icon">❤️</span><span id="hudLives">∞</span>
+      <span class="sep"></span>
+      <span class="icon">⭐</span><span id="hudStars">0</span>
+      <span class="sep"></span>
+      <span class="icon">🎟️</span><span id="hudWishes">0</span>
+    </div>
+
+    <div class="pill right">
+      <button class="pill btn small" id="btnWallet">지갑</button>
+      <button class="pill btn small" id="btnAch">기록</button>
+    </div>
+  </header>
+
+  <main class="screenWrap">
+    <!-- Lobby -->
+    <section class="screen" id="screenLobby">
+      <!-- 상단 타이틀 -->
+      <div class="titleBlock lobbyHeader">
+        <div class="title">하임팡</div>
+        <div class="subtitle">
+          효임 ❤️ 선규
+        </div>
+      </div>
+
+      <!-- 메인 카드: 오늘 미션 + 레벨 + 사진 + 게임 버튼 -->
+      <div class="card bigCard lobbyMainCard">
+        <!-- 상단: 오늘 미션 문구 + 레벨 배지 -->
+        <div class="lobbyTopRow">
+          <div class="lobbyMissionText">
+            <div class="lobbyTag">TODAY</div>
+            <div class="lobbyMessage" id="uiMissionLine">
+              별을 모아 맛있는 거 사먹자!
+            </div>
+          </div>
+
+          <div class="lobbyLevelBadge">
+            <div class="levelLabel">LEVEL</div>
+            <div class="levelValue" id="uiLevel">1</div>
+          </div>
+        </div>
+
+        <!-- 가운데: 사진 스티커 -->
+        <div class="lobbyPhotoWrap">
+          <div class="sticker" id="lobbyPhoto">
+            <div class="stickerOverlay">
+              <div class="stickerText">LOVE</div>
+              <button class="pill btn small" id="btnPickPhoto">사진 넣기</button>
+            </div>
+          </div>
+          <input id="photoInput" type="file" accept="image/*" class="hidden" />
+        </div>
+
+        <!-- 하단: 게임 시작 버튼 -->
+        <button class="cta" id="btnPlay">게임 하기</button>
+      </div>
+
+      <!-- 별 상점 카드 -->
+      <div class="card shopCard">
+        <div class="cardTitle">🛍️ 별 상점</div>
+        <div class="shopGrid" id="shopGrid"></div>
+        <div class="shopHint">클리어해서 ⭐를 모으면 쿠폰으로 바꿀 수 있어.</div>
+      </div>
+    </section>
+
+    <!-- Wallet -->
+    <section class="screen hidden" id="screenWallet">
+      <div class="titleBlock small">
+        <div class="title">지갑</div>
+        <div class="subtitle">모은 쿠폰들이 여기 있어 🎫</div>
+      </div>
+
+      <div class="card">
+        <div class="cardTitle">내 쿠폰</div>
+        <div id="walletList" class="walletList"></div>
+      </div>
+
+      <button class="pill btn backBtn" id="btnBackFromWallet">← 로비</button>
+    </section>
+
+    <!-- Achievements -->
+    <section class="screen hidden" id="screenAch">
+      <div class="titleBlock small">
+        <div class="title">기록</div>
+        <div class="subtitle">우리 사랑의 로그 📝</div>
+      </div>
+
+      <!-- 하임팡 통계 -->
+      <div class="card">
+        <div class="cardTitle">하임팡 통계</div>
+        <div class="achRow">
+          <div class="achName">하임팡 발동</div>
+          <div class="achVal"><span id="achHaimpangTotal">0</span> 회</div>
+        </div>
+        <div class="achRow">
+          <div class="achName">소원권</div>
+          <div class="achVal"><span id="achWish">0</span> 장</div>
+        </div>
+        <div class="muted smallPad">하임팡! 10회마다 소원권 1장 지급</div>
+      </div>
+
+      <!-- 소원 노트 -->
+      <div class="card">
+        <div class="cardTitle">소원 노트</div>
+
+        <div class="wishHeader">
+          <div class="wishCount">지금 가진 소원권: <span id="wishCount">0</span> 장</div>
+          <div class="wishDesc">소원을 한 줄로 적고 보내면 소원권 1장을 써서 기록할게 ✨</div>
+        </div>
+
+        <div class="wishInputRow">
+          <input
+            id="wishInput"
+            class="wishInput"
+            maxlength="60"
+            placeholder="예: 마사지 20분 해주기"
+          />
+          <button class="pill btn small" id="btnSendWish">소원 보내기</button>
+        </div>
+
+        <div class="wishLogWrap">
+          <div class="wishLogTitleRow">
+            <div class="wishLogTitle">보낸 소원들</div>
+            <div class="wishLogTotal">총 <span id="wishLogTotal">0</span>개</div>
+          </div>
+          <div id="wishLogList" class="wishLogList"></div>
+          <div id="wishLogEmpty" class="muted smallPad">
+            아직 보낸 소원이 없어요. 첫 소원을 적어볼까? 💭
+          </div>
+        </div>
+      </div>
+
+      <button class="pill btn backBtn" id="btnBackFromAch">← 로비</button>
+    </section>
+
+    <!-- Game -->
+    <section class="screen hidden" id="screenGame">
+      <!-- HUD: 이동 + 미션 -->
+      <div class="gameHud">
+        <div class="hudCard">
+          <!-- 이동 블록 -->
+          <div class="hudItem hudItemMoves">
+            <span class="hudIco">🧩</span>
+            <span class="hudLabel">이동</span>
+            <span class="hudVal" id="hudMoves">0</span>
+          </div>
+
+          <div class="hudDivider"></div>
+
+          <!-- 미션 블록 -->
+          <div class="hudItem hudItemMission">
+            <div class="missionLabelBlock">
+              <span class="hudIco">🎯</span>
+              <span class="hudLabel">미션</span>
+            </div>
+            <div class="missionPillsWrap" id="missionPills">
+              <!-- JS에서 동적으로 pill 추가 -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Game board -->
+      <div class="gameBoardWrap">
+        <canvas id="gameCanvas"></canvas>
+      </div>
+
+      <!-- 하단 버튼들: 재시작 / 나가기 -->
+      <div class="gameBtns">
+        <button class="pill btn" id="btnRestartStage">다시하기</button>
+        <button class="pill btn subtle" id="btnQuit">나가기</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal: QR (쿠폰 보여주기) -->
+  <div class="modal hidden" id="modalQR">
+    <div class="modalCard">
+      <div class="rowBetween">
+        <div>
+          <div class="modalTitle">QR 쿠폰</div>
+          <div class="muted" id="qrCaption">스캔해서 사용 처리</div>
+        </div>
+        <button class="pill btn small" id="btnCloseQR">닫기</button>
+      </div>
+      <div class="qrBox">
+        <!-- 캔버스 대신 이미지 사용 -->
+        <img id="qrImage" alt="QR 코드" />
+      </div>
+      <div class="muted tiny" id="qrTokenPreview"></div>
+    </div>
+  </div>
+
+  <!-- 토스트 -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Flash / Combo overlay for HAIMPANG! -->
+  <div id="comboFloat" class="comboFloat"></div>
+  <div id="flash" class="flash hidden"></div>
+
+  <!-- ✅ Stage Clear Modal -->
+  <div id="clearModal" class="modal hidden">
+    <div class="modalCard clearCard">
+      <div class="clearHeader">
+        <div class="clearTitle">스테이지 클리어!</div>
+        <div class="clearSub">LEVEL <span id="clearLevel">1</span> 완료</div>
+      </div>
+      <div class="clearStars">
+        <span class="clearStarIcon">⭐</span>
+        <span class="clearStarText">+<span id="clearStars">3</span></span>
+      </div>
+      <button class="pill btn wide" id="btnClearToLobby">로비로 가기</button>
+    </div>
+  </div>
+</div> <!-- #app 끝 -->
+
+<!-- Game logic -->
+<script src="haimpang.js"></script>
+</body>
+</html>
