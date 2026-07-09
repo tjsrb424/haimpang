@@ -22,18 +22,22 @@ export function AppFrame({
   return (
     <div className="app-shell">
       <header className="top-bar">
-        <div className="brand-lockup" aria-label="HAIMPANG">
-          <img src="/assets/icons/icon-192.png" alt="" className="brand-mark" />
-          <div>
-            <p className="eyebrow">효임을 위한 선물 앱</p>
-            <h1>HAIMPANG</h1>
+        <div className="brand-row">
+          <div className="brand-lockup" aria-label="HAIMPANG">
+            <span className="brand-sigil" aria-hidden="true">
+              HP
+            </span>
+            <div>
+              <p className="eyebrow">효임을 위한 선물 앱</p>
+              <h1>HAIMPANG</h1>
+            </div>
           </div>
+          <span className="today-chip">{todayLabel}</span>
         </div>
 
         <div className="status-row" aria-label="보유 재화">
-          <span className="status-pill">별 {save.stars}</span>
-          <span className="status-pill">하트 {save.hearts}</span>
-          <span className="date-pill">{todayLabel}</span>
+          <span className="status-pill star">별 {save.stars}</span>
+          <span className="status-pill heart">하트 {save.hearts}</span>
         </div>
       </header>
 
@@ -48,7 +52,7 @@ export function AppFrame({
             onClick={() => onRouteChange(route.key)}
             aria-current={route.key === activeRoute ? 'page' : undefined}
           >
-            <span className="tab-dot" aria-hidden="true" />
+            <span className={`tab-glyph ${route.key}`} aria-hidden="true" />
             <span>{route.shortLabel}</span>
           </button>
         ))}

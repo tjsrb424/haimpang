@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { HaimpangSave } from '../save/saveManager';
 import { SectionHeader } from '../components/SectionHeader';
+import type { HaimpangSave } from '../save/saveManager';
 
 interface SettingsPageProps {
   save: HaimpangSave;
@@ -24,7 +24,7 @@ export function SettingsPage({
       <SectionHeader
         eyebrow="설정"
         title="하임팡을 편하게 맞추기"
-        description="사운드, 진동, 저장 데이터를 여기서 관리합니다."
+        description="사운드, 진동, 저장 데이터를 단정하게 관리합니다."
       />
 
       <div className="settings-list">
@@ -45,7 +45,7 @@ export function SettingsPage({
           />
         </label>
         <label className="toggle-row">
-          <span>개발자 패널</span>
+          <span>디버그 패널</span>
           <input
             type="checkbox"
             checked={save.settings.debugPanel}
@@ -77,7 +77,7 @@ export function SettingsPage({
         </div>
       </div>
 
-      <p className="version-label">앱 버전 0.1.0 Sprint 0</p>
+      <p className="version-label">앱 버전 0.1.0 Sprint 1</p>
     </section>
   );
 }

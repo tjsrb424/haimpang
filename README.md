@@ -2,13 +2,14 @@
 
 HAIMPANG is being rebuilt as a mobile-first personal match-3 PWA.
 
-## Sprint 0 Scope
+## Current Scope
 
-- Vite + React + TypeScript project skeleton.
+- Vite + React + TypeScript app shell.
 - Phaser 3 mounted inside the Game page.
-- Mobile portrait app shell with Home, Game, Wallet, Memory, and Settings tabs.
-- PWA manifest and preserved app icon assets.
+- Mobile portrait Home, Game, Wallet, Memory, and Settings screens.
+- PWA manifest and app launcher icon assets.
 - Versioned localStorage save manager skeleton.
+- Sprint 1 design tokens, asset-use rules, and icon-free in-game placeholder board.
 
 ## Commands
 
@@ -27,4 +28,8 @@ See `public/assets/README.md`.
 
 ## Notes
 
-The old static JavaScript, CSS, manifest, and DOM-driven implementation were removed from the runtime path. Sprint 1 will add the pure TypeScript match-3 core and tests before gameplay logic is wired into Phaser.
+The old static JavaScript, CSS, manifest, and DOM-driven implementation were removed from the runtime path.
+
+App launcher icons live in `public/assets/icons` and are only used by PWA/browser metadata. Game screens and Phaser scenes use CSS and Phaser Graphics placeholders instead.
+
+Sprint 2 should implement the pure TypeScript match-3 core and tests before gameplay logic is wired into Phaser.
