@@ -267,6 +267,11 @@ textarea {
   margin-top: var(--space-lg);
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 .primary-button,
 .secondary-button,
 .danger-button,
@@ -304,6 +309,56 @@ textarea {
   justify-content: space-between;
   gap: var(--space-md);
   padding: var(--space-lg);
+}
+
+.continue-card,
+.install-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-elevated);
+  box-shadow: var(--shadow-soft);
+}
+
+.continue-card h3,
+.install-card h3,
+.stage-card h3,
+.coupon-detail h2,
+.memory-section-head h3 {
+  margin: 0 0 6px;
+  color: var(--color-text-primary);
+  letter-spacing: 0;
+}
+
+.continue-card p,
+.install-card p,
+.stage-card p,
+.coupon-detail p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-body);
+  line-height: 1.46;
+}
+
+.compact-button {
+  min-height: 38px;
+  margin-top: var(--space-md);
+}
+
+.install-card {
+  background:
+    linear-gradient(135deg, rgba(232, 249, 245, 0.92), rgba(255, 255, 255, 0.9)),
+    var(--color-surface-elevated);
+}
+
+.install-card.installed {
+  background:
+    linear-gradient(135deg, rgba(255, 243, 204, 0.82), rgba(255, 255, 255, 0.9)),
+    var(--color-surface-elevated);
 }
 
 .reward-strip strong {
@@ -501,6 +556,20 @@ textarea {
   gap: var(--space-md);
 }
 
+.coupon-title-row,
+.stage-card-head,
+.stage-card-meta,
+.memory-section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.coupon-title-row {
+  margin-bottom: var(--space-sm);
+}
+
 .coupon-card.locked {
   background: rgba(255, 255, 255, 0.64);
   box-shadow: none;
@@ -553,6 +622,209 @@ textarea {
   font-size: 0.68rem;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+.coupon-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: end center;
+  padding: var(--space-lg) var(--space-lg) calc(86px + env(safe-area-inset-bottom));
+  background: rgba(65, 45, 56, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+.coupon-detail {
+  width: min(100%, 390px);
+  max-height: min(78vh, 720px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 113, 151, 0.24);
+  background:
+    radial-gradient(circle at 92% 8%, rgba(255, 255, 255, 0.84) 0 9%, transparent 10%),
+    linear-gradient(145deg, rgba(255, 232, 238, 0.96), rgba(255, 248, 241, 0.98) 58%, rgba(232, 249, 245, 0.82)),
+    var(--color-surface-elevated);
+  box-shadow: var(--shadow-floating);
+}
+
+.coupon-detail.used,
+.coupon-detail.locked {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(246, 240, 243, 0.96)),
+    var(--color-surface-elevated);
+}
+
+.coupon-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.icon-button {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-soft);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.coupon-code-panel {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-md);
+  align-items: center;
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--color-border-soft);
+}
+
+.coupon-code-panel code {
+  display: inline-block;
+  margin-bottom: var(--space-sm);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: #fff8ed;
+  color: var(--color-text-primary);
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.qr-placeholder {
+  width: 104px;
+  height: 104px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(7, 1fr);
+  gap: 3px;
+  padding: 9px;
+  border-radius: var(--radius-md);
+  background: #fffdfa;
+  border: 1px solid rgba(65, 45, 56, 0.12);
+}
+
+.qr-placeholder span {
+  border-radius: 3px;
+  background: rgba(65, 45, 56, 0.08);
+}
+
+.qr-placeholder span.active {
+  background: #3b2e35;
+}
+
+.coupon-use-panel,
+.confirm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--color-border-soft);
+}
+
+.coupon-use-panel.calm {
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.stage-select-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.stage-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-sm);
+}
+
+.stage-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-elevated);
+  box-shadow: var(--shadow-soft);
+}
+
+.stage-card.recommended {
+  border-color: rgba(255, 113, 151, 0.36);
+  background:
+    linear-gradient(145deg, rgba(255, 232, 238, 0.62), rgba(255, 255, 255, 0.92)),
+    var(--color-surface-elevated);
+}
+
+.stage-card.locked {
+  opacity: 0.72;
+  box-shadow: none;
+}
+
+.stage-state {
+  padding: 7px 9px;
+  border-radius: var(--radius-pill);
+  background: #f5f1eb;
+  color: var(--color-text-muted);
+  font-size: var(--font-caption);
+  font-weight: 900;
+}
+
+.stage-state.cleared {
+  background: var(--color-success-soft);
+  color: #2f776b;
+}
+
+.stage-state.unlocked,
+.stage-state.recommended {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.stage-card-meta span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+  font-weight: 900;
+}
+
+.locked-action {
+  color: var(--color-text-muted);
+}
+
+.memory-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.memory-section-head {
+  justify-content: space-between;
+}
+
+.memory-section-head span {
+  min-width: 30px;
+  padding: 6px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-soft);
+  color: #2f776b;
+  text-align: center;
+  font-size: var(--font-caption);
+  font-weight: 900;
+}
+
+.memory-card.empty {
+  box-shadow: none;
+  background: rgba(255, 255, 255, 0.52);
 }
 
 .memory-summary {

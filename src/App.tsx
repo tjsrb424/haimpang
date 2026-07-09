@@ -6,6 +6,7 @@ import { DebugPanel } from './debug/DebugPanel';
 import type { StageFinishResult } from './game/session/stageSession';
 import { HomePage } from './pages/HomePage';
 import { GamePage } from './pages/GamePage';
+import { StageSelectPage } from './pages/StageSelectPage';
 import { WalletPage } from './pages/WalletPage';
 import { MemoryPage } from './pages/MemoryPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -18,13 +19,18 @@ import {
   loadSave,
   resetSave,
   saveGame,
+  useCoupon as applyCouponUse,
   type HaimpangSave,
 } from './save/saveManager';
+import { canStartStage, getRecommendedStage } from './stage/stageSelect';
+
+type GameView = 'select' | 'play';
 
 export function App() {
   const [activeRoute, setActiveRoute] = useState<AppRouteKey>('home');
   const [save, setSave] = useState<HaimpangSave>(() => loadSave());
   const [currentStageId, setCurrentStageId] = useState(1);
+  const [gameView, setGameView] = useState<GameView>('select');
   const [gameRunId, setGameRunId] = useState(0);
   const [stageResult, setStageResult] = useState<StageFinishResult | null>(null);
   const currentStage = stages.find((stage) => stage.id === currentStageId) ?? stages[0];
@@ -66,18 +72,46 @@ export function App() {
   };
 
   const getNextPlayableStageId = (nextSave: HaimpangSave): number => {
-    const unlocked = stages
-      .filter((stage) => nextSave.unlockedStages.includes(stage.id))
-      .sort((a, b) => a.id - b.id);
-    const uncleared = unlocked.find((stage) => !nextSave.clearedStages.includes(stage.id));
-    return uncleared?.id ?? unlocked[unlocked.length - 1]?.id ?? 1;
+    return getRecommendedStage(stages, nextSave).id;
   };
 
   const startGame = () => {
     setCurrentStageId(getNextPlayableStageId(save));
     setStageResult(null);
+    setGameView('play');
     setGameRunId((value) => value + 1);
     setActiveRoute('game');
+  };
+
+  const startStage = (stageId: number) => {
+    if (!canStartStage(save, stageId)) {
+      return;
+    }
+
+    setCurrentStageId(stageId);
+    setStageResult(null);
+    setGameView('play');
+    setGameRunId((value) => value + 1);
+    setActiveRoute('game');
+  };
+
+  const openStageSelect = () => {
+    setStageResult(null);
+    setGameView('select');
+    setActiveRoute('game');
+  };
+
+  const openWallet = () => {
+    setStageResult(null);
+    setActiveRoute('wallet');
+  };
+
+  const handleRouteChange = (route: AppRouteKey) => {
+    setStageResult(null);
+    if (route === 'game') {
+      setGameView('select');
+    }
+    setActiveRoute(route);
   };
 
   const handleStageFinished = (result: StageFinishResult) => {
@@ -108,6 +142,7 @@ export function App() {
 
   const replayStage = () => {
     setStageResult(null);
+    setGameView('play');
     setGameRunId((value) => value + 1);
   };
 
@@ -120,6 +155,7 @@ export function App() {
 
     setCurrentStageId(nextStage.id);
     setStageResult(null);
+    setGameView('play');
     setGameRunId((value) => value + 1);
   };
 
@@ -128,22 +164,34 @@ export function App() {
     setActiveRoute('home');
   };
 
+  const handleUseCoupon = (couponId: string) => {
+    updateSave(applyCouponUse(save, couponId));
+  };
+
   return (
     <AppFrame
       activeRoute={activeRoute}
       routes={routes}
       save={save}
       todayLabel={todayLabel}
-      onRouteChange={setActiveRoute}
+      onRouteChange={handleRouteChange}
     >
       {activeRoute === 'home' && (
         <HomePage
           save={save}
           onStartGame={startGame}
-          onOpenWallet={() => setActiveRoute('wallet')}
+          onOpenStageSelect={openStageSelect}
+          onOpenWallet={openWallet}
         />
       )}
-      {activeRoute === 'game' && (
+      {activeRoute === 'game' && gameView === 'select' && (
+        <StageSelectPage
+          save={save}
+          onStartStage={startStage}
+          onHome={goHome}
+        />
+      )}
+      {activeRoute === 'game' && gameView === 'play' && (
         <GamePage
           stage={currentStage}
           runId={gameRunId}
@@ -152,10 +200,12 @@ export function App() {
           onStageFinished={handleStageFinished}
           onReplay={replayStage}
           onNextStage={goNextStage}
+          onStageSelect={openStageSelect}
+          onOpenWallet={openWallet}
           onHome={goHome}
         />
       )}
-      {activeRoute === 'wallet' && <WalletPage save={save} />}
+      {activeRoute === 'wallet' && <WalletPage save={save} onUseCoupon={handleUseCoupon} />}
       {activeRoute === 'memory' && <MemoryPage save={save} />}
       {activeRoute === 'settings' && (
         <SettingsPage

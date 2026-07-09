@@ -5,6 +5,7 @@ export const SAVE_VERSION = 1;
 export const SAVE_KEY = 'haimpang_save_v1';
 
 export type CouponStatus = 'locked' | 'available' | 'used';
+export type MemoryLogCategory = 'system' | 'stage_clear' | 'coupon_unlock' | 'coupon_used' | 'special';
 
 export interface CouponWalletEntry {
   id: string;
@@ -17,6 +18,7 @@ export interface MemoryLogEntry {
   date: string;
   title: string;
   description: string;
+  category: MemoryLogCategory;
 }
 
 export interface HaimpangSave {
@@ -42,6 +44,10 @@ function uniqueNumbers(values: number[]): number[] {
   return Array.from(new Set(values)).sort((a, b) => a - b);
 }
 
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(new Set(values));
+}
+
 const createDefaultCouponWallet = (): CouponWalletEntry[] =>
   coupons.map((coupon) => ({
     id: coupon.id,
@@ -61,6 +67,24 @@ function mergeCouponWallet(rawWallet: CouponWalletEntry[] | undefined): CouponWa
   });
 }
 
+function normalizeMemoryLog(log: Partial<MemoryLogEntry>, index: number): MemoryLogEntry {
+  return {
+    id: log.id ?? `memory-${index}`,
+    date: log.date ?? new Date().toISOString(),
+    title: log.title ?? 'HAIMPANG memory',
+    description: log.description ?? 'A small HAIMPANG memory was saved.',
+    category: log.category ?? (log.id?.startsWith('stage-') ? 'stage_clear' : 'system'),
+  };
+}
+
+function mergeMemoryLogs(rawLogs: Array<Partial<MemoryLogEntry>> | undefined): MemoryLogEntry[] {
+  if (!rawLogs || rawLogs.length === 0) {
+    return createDefaultSave().memoryLogs;
+  }
+
+  return rawLogs.map(normalizeMemoryLog);
+}
+
 export const createDefaultSave = (): HaimpangSave => ({
   saveVersion: SAVE_VERSION,
   playerName: 'Haim',
@@ -77,6 +101,7 @@ export const createDefaultSave = (): HaimpangSave => ({
       date: new Date().toISOString(),
       title: 'HAIMPANG opened',
       description: 'The first little gift app screen is ready.',
+      category: 'system',
     },
   ],
   settings: {
@@ -104,7 +129,8 @@ export function migrateSave(rawSave: Partial<HaimpangSave> | null): HaimpangSave
       ...rawSave.settings,
     },
     couponWallet: mergeCouponWallet(rawSave.couponWallet),
-    memoryLogs: rawSave.memoryLogs && rawSave.memoryLogs.length > 0 ? rawSave.memoryLogs : defaults.memoryLogs,
+    usedCoupons: uniqueStrings(rawSave.usedCoupons ?? []),
+    memoryLogs: mergeMemoryLogs(rawSave.memoryLogs),
   };
 }
 
@@ -179,6 +205,60 @@ export function unlockCoupon(save: HaimpangSave, couponId: string): HaimpangSave
   };
 }
 
+export function getCouponStatus(save: HaimpangSave, couponId: string): CouponStatus {
+  return mergeCouponWallet(save.couponWallet).find((entry) => entry.id === couponId)?.status ?? 'locked';
+}
+
+export function getCouponCounts(save: HaimpangSave): Record<CouponStatus, number> {
+  return mergeCouponWallet(save.couponWallet).reduce(
+    (counts, entry) => ({
+      ...counts,
+      [entry.status]: counts[entry.status] + 1,
+    }),
+    { locked: 0, available: 0, used: 0 },
+  );
+}
+
+export function useCoupon(save: HaimpangSave, couponId: string): HaimpangSave {
+  const coupon = coupons.find((candidate) => candidate.id === couponId);
+  if (!coupon) {
+    return save;
+  }
+
+  const wallet = mergeCouponWallet(save.couponWallet);
+  const entry = wallet.find((candidate) => candidate.id === couponId);
+  if (!entry || entry.status !== 'available') {
+    return save;
+  }
+
+  const now = new Date().toISOString();
+
+  return {
+    ...save,
+    couponWallet: wallet.map((candidate) =>
+      candidate.id === couponId
+        ? {
+            ...candidate,
+            status: 'used',
+            usedAt: now,
+          }
+        : candidate,
+    ),
+    usedCoupons: uniqueStrings([...save.usedCoupons, couponId]),
+    memoryLogs: [
+      {
+        id: `coupon-${couponId}-used-${now}`,
+        date: now,
+        title: coupon.memoryTitle,
+        description: coupon.memoryDescription,
+        category: 'coupon_used',
+      },
+      ...save.memoryLogs,
+    ],
+    lastPlayedAt: now,
+  };
+}
+
 function nextStageId(stageId: number): number | null {
   return stages.some((stage) => stage.id === stageId + 1) ? stageId + 1 : null;
 }
@@ -203,17 +283,37 @@ export function applyStageClearReward(save: HaimpangSave, stage: StageDefinition
 
   const reward = stage.reward;
   const withCoupon = reward.couponId ? unlockCoupon(save, reward.couponId) : save;
-  const memoryLogs = reward.memoryTitle
-    ? [
-        {
-          id: `stage-${stage.id}-clear`,
+  const coupon = reward.couponId ? coupons.find((candidate) => candidate.id === reward.couponId) : undefined;
+  const couponWasLocked =
+    reward.couponId !== undefined &&
+    mergeCouponWallet(save.couponWallet).find((entry) => entry.id === reward.couponId)?.status === 'locked';
+  const stageClearLog: MemoryLogEntry | null = reward.memoryTitle
+    ? {
+        id: `stage-${stage.id}-clear`,
+        date: now,
+        title: reward.memoryTitle,
+        description: reward.memoryDescription ?? `${stage.title} cleared.`,
+        category: 'stage_clear',
+      }
+    : null;
+  const couponUnlockLog: MemoryLogEntry | null =
+    coupon && couponWasLocked
+      ? {
+          id: `coupon-${coupon.id}-unlock`,
           date: now,
-          title: reward.memoryTitle,
-          description: reward.memoryDescription ?? `${stage.title} cleared.`,
-        },
-        ...save.memoryLogs.filter((log) => log.id !== `stage-${stage.id}-clear`),
-      ]
-    : save.memoryLogs;
+          title: `${coupon.title} 해금`,
+          description: `${coupon.title}이 지갑에서 사용 가능해졌어요.`,
+          category: 'coupon_unlock',
+        }
+      : null;
+  const nextMemoryLogs = [stageClearLog, couponUnlockLog].filter(
+    (log): log is MemoryLogEntry => Boolean(log),
+  );
+  const nextMemoryLogIds = new Set(nextMemoryLogs.map((log) => log.id));
+  const memoryLogs =
+    nextMemoryLogs.length > 0
+      ? [...nextMemoryLogs, ...save.memoryLogs.filter((log) => !nextMemoryLogIds.has(log.id))]
+      : save.memoryLogs;
 
   return {
     ...withCoupon,

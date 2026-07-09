@@ -16,6 +16,8 @@ interface GamePageProps {
   onStageFinished: (result: StageFinishResult) => void;
   onReplay: () => void;
   onNextStage: () => void;
+  onStageSelect: () => void;
+  onOpenWallet: () => void;
   onHome: () => void;
 }
 
@@ -31,6 +33,8 @@ export function GamePage({
   onStageFinished,
   onReplay,
   onNextStage,
+  onStageSelect,
+  onOpenWallet,
   onHome,
 }: GamePageProps) {
   const [summary, setSummary] = useState<StageProgressSummary>(() => createInitialProgress(stage));
@@ -111,12 +115,20 @@ export function GamePage({
               {result.reward && <span>Stars <strong>+{result.reward.stars}</strong></span>}
               {result.reward?.hearts && <span>Hearts <strong>+{result.reward.hearts}</strong></span>}
               {result.reward?.couponId && <span>Coupon <strong>{result.reward.couponId}</strong></span>}
-              {result.status === 'won' && !result.firstClear && <span>Reward already claimed</span>}
+              {result.status === 'won' && !result.firstClear && <span>Reward claimed on first clear</span>}
             </div>
 
             <div className="result-actions">
               <button type="button" className="primary-button" onClick={result.status === 'won' ? onNextStage : onReplay}>
                 {result.status === 'won' ? 'Next stage' : 'Retry'}
+              </button>
+              {result.status === 'won' && result.reward?.couponId && (
+                <button type="button" className="secondary-button" onClick={onOpenWallet}>
+                  Coupon wallet
+                </button>
+              )}
+              <button type="button" className="secondary-button" onClick={onStageSelect}>
+                Stage select
               </button>
               <button type="button" className="secondary-button" onClick={onReplay}>
                 Replay
