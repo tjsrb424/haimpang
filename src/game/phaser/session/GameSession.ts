@@ -1,5 +1,5 @@
 import { createInitialBoard } from '../../core/board';
-import type { BoardGrid, BoardPosition, MatchGroup } from '../../core/types';
+import type { BoardGrid, BoardPosition, MatchGroup, TileKind } from '../../core/types';
 import type { InputState } from '../../input/inputState';
 import type { SwipeDirection } from '../../input/swipeDetector';
 
@@ -24,9 +24,9 @@ export interface GameSession {
   lastSwipeDirection: SwipeDirection | null;
 }
 
-export function createGameSession(seed: string | number): GameSession {
+export function createGameSession(seed: string | number, tileKinds?: TileKind[]): GameSession {
   return {
-    board: createInitialBoard({ seed }),
+    board: createInitialBoard({ seed, tileKinds }),
     seed,
     moveCount: 0,
     score: 0,

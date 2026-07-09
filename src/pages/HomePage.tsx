@@ -9,7 +9,13 @@ interface HomePageProps {
 }
 
 export function HomePage({ save, onStartGame, onOpenWallet }: HomePageProps) {
-  const nextStage = stages.find((stage) => save.unlockedStages.includes(stage.id)) ?? stages[0];
+  const unlockedStages = stages
+    .filter((stage) => save.unlockedStages.includes(stage.id))
+    .sort((a, b) => a.id - b.id);
+  const nextStage =
+    unlockedStages.find((stage) => !save.clearedStages.includes(stage.id)) ??
+    unlockedStages[unlockedStages.length - 1] ??
+    stages[0];
   const recentLog = save.memoryLogs[0];
 
   return (

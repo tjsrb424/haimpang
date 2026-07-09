@@ -403,6 +403,35 @@ textarea {
   padding-block: 8px;
 }
 
+.mission-list {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.mission-progress {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-text-primary);
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+
+.mission-progress span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mission-progress strong {
+  flex: 0 0 auto;
+}
+
+.mission-progress.complete {
+  color: #2f776b;
+}
+
 .board-shell {
   padding: 4px;
   background:
@@ -692,6 +721,76 @@ textarea {
   font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
   font-size: 0.7rem;
   z-index: 10;
+}
+
+.result-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: end center;
+  padding: var(--space-lg) var(--space-lg) calc(86px + env(safe-area-inset-bottom));
+  background: rgba(65, 45, 56, 0.24);
+  backdrop-filter: blur(5px);
+}
+
+.result-card {
+  width: min(100%, 390px);
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-soft);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(255, 248, 241, 0.97)),
+    var(--color-surface-elevated);
+  box-shadow: var(--shadow-floating);
+}
+
+.result-card.won {
+  border-color: rgba(244, 184, 63, 0.36);
+}
+
+.result-card.lost {
+  border-color: rgba(216, 92, 74, 0.2);
+}
+
+.result-card h2 {
+  margin: 0 0 6px;
+  color: var(--color-text-primary);
+  font-size: 1.34rem;
+  line-height: 1.1;
+}
+
+.result-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+  margin: var(--space-lg) 0;
+}
+
+.result-summary span {
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 9px 10px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--color-border-soft);
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+  font-weight: 900;
+}
+
+.result-summary strong {
+  color: var(--color-text-primary);
+  font-size: 1rem;
+}
+
+.result-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-sm);
 }
 
 @media (max-width: 380px) {

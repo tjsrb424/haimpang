@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
+import { stages, type StageDefinition } from '../../../data/stages';
 import { BOARD_HEIGHT, BOARD_WIDTH, boardToKindRows, isInsideBoard } from '../../core/board';
 import { resolveCascade } from '../../core/cascade';
 import { getTile } from '../../core/board';
 import { findPossibleMoves } from '../../core/shuffle';
 import { trySwap } from '../../core/swap';
-import type { BoardPosition, CascadeResult } from '../../core/types';
+import type { BoardPosition, BoardTile, CascadeResult, TileKind } from '../../core/types';
 import { canAcceptBoardInput, canStartGesture, type InputState } from '../../input/inputState';
 import { pointerToTile, type BoardLayoutMetrics } from '../../input/pointerToTile';
 import { detectSwipeDirection, type SwipeDirection } from '../../input/swipeDetector';
@@ -24,8 +25,23 @@ import {
   type GameSession,
   type GameSessionSummary,
 } from '../session/GameSession';
+import {
+  applyMoveResult,
+  createStageSession,
+  toStageFinishResult,
+  toStageProgressSummary,
+  type StageFinishResult,
+  type StageProgressSummary,
+  type StageSession,
+} from '../../session/stageSession';
 
-const SESSION_SEED = 'haimpang-sprint3-live';
+const DEFAULT_STAGE = stages[0];
+
+interface CascadeAnimationResult {
+  scoreGained: number;
+  removedTiles: Array<{ kind: TileKind }>;
+  cascadeCount: number;
+}
 
 interface PointerGesture {
   startX: number;
@@ -36,7 +52,10 @@ interface PointerGesture {
 }
 
 export interface Match3SceneOptions {
+  stage?: StageDefinition;
   onSessionChange?: (summary: GameSessionSummary) => void;
+  onStageProgress?: (summary: StageProgressSummary) => void;
+  onStageFinished?: (result: StageFinishResult) => void;
   vibrationEnabled?: boolean;
 }
 
@@ -55,6 +74,12 @@ type DebugWindow = Window & {
     inputLocked: boolean;
     possibleMoves: Array<{ from: BoardPosition; to: BoardPosition }>;
     boardKinds: string[][];
+    stageId: number;
+    stageStatus: string;
+    movesRemaining: number;
+    missionProgress: string;
+    firstClear: string;
+    rewardPending: boolean;
   };
 };
 
@@ -66,6 +91,8 @@ export class Match3Scene extends Phaser.Scene {
   private tileViews = new Map<string, TileView>();
   private pointerGesture: PointerGesture | null = null;
   private options: Match3SceneOptions;
+  private stageSession: StageSession | null = null;
+  private finishPublished = false;
 
   constructor(options: Match3SceneOptions = {}) {
     super('Match3Scene');
@@ -73,9 +100,13 @@ export class Match3Scene extends Phaser.Scene {
   }
 
   create() {
-    this.session = createGameSession(SESSION_SEED);
+    const stage = this.getStage();
+    this.session = createGameSession(stage.seed, stage.tileKinds);
+    this.stageSession = createStageSession(stage);
+    this.finishPublished = false;
     this.renderBoard();
     this.publishSession();
+    this.publishStageProgress();
     this.updateDebugSnapshot();
 
     this.input.on('pointerdown', this.handlePointerDown, this);
@@ -107,6 +138,10 @@ export class Match3Scene extends Phaser.Scene {
     this.session.inputState = inputState;
     this.session.isBusy = !canAcceptBoardInput(inputState) && inputState !== 'POINTER_DOWN' && inputState !== 'DRAGGING';
     this.updateDebugSnapshot();
+  }
+
+  private getStage(): StageDefinition {
+    return this.options.stage ?? DEFAULT_STAGE;
   }
 
   private calculateMetrics(): BoardLayoutMetrics {
@@ -192,7 +227,13 @@ export class Match3Scene extends Phaser.Scene {
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer) {
-    if (!this.session || !this.metrics || !canStartGesture(this.session.inputState)) {
+    if (
+      !this.session ||
+      !this.stageSession ||
+      !this.metrics ||
+      this.stageSession.status !== 'playing' ||
+      !canStartGesture(this.session.inputState)
+    ) {
       return;
     }
 
@@ -273,7 +314,12 @@ export class Match3Scene extends Phaser.Scene {
   }
 
   private async handleTap(tile: BoardPosition): Promise<void> {
-    if (!this.session || !canAcceptBoardInput(this.session.inputState)) {
+    if (
+      !this.session ||
+      !this.stageSession ||
+      this.stageSession.status !== 'playing' ||
+      !canAcceptBoardInput(this.session.inputState)
+    ) {
       return;
     }
 
@@ -303,7 +349,7 @@ export class Match3Scene extends Phaser.Scene {
   }
 
   private async attemptSwap(from: BoardPosition, to: BoardPosition): Promise<void> {
-    if (!this.session || !this.metrics) {
+    if (!this.session || !this.stageSession || !this.metrics || this.stageSession.status !== 'playing') {
       return;
     }
 
@@ -339,6 +385,7 @@ export class Match3Scene extends Phaser.Scene {
       this.session.lastMatches = [];
       this.syncSelection();
       this.setInputState('READY');
+      this.publishStageProgress();
       this.publishSession();
       return;
     }
@@ -356,19 +403,45 @@ export class Match3Scene extends Phaser.Scene {
     const cascade = resolveCascade(this.session.board, {
       seed: `${this.session.seed}:move:${this.session.moveCount}`,
     });
-    await this.playCascade(cascade);
+    const cascadeResult = await this.playCascade(cascade);
     this.session.board = cascade.finalBoard;
     this.session.lastMatches = [];
-    this.setInputState('READY');
-    this.publishSession();
-  }
+    this.stageSession = applyMoveResult(
+      this.stageSession,
+      {
+        ...cascadeResult,
+        validMove: true,
+      },
+      this.getStage(),
+    );
+    this.session.score = this.stageSession.score;
+    this.session.moveCount = this.stageSession.movesUsed;
 
-  private async playCascade(cascade: CascadeResult): Promise<void> {
-    if (!this.session || !this.metrics) {
+    if (this.stageSession.status === 'won' || this.stageSession.status === 'lost') {
+      this.setInputState(this.stageSession.status === 'won' ? 'WIN' : 'LOSE');
+      this.publishStageProgress();
+      this.publishStageFinished();
+      this.publishSession();
       return;
     }
 
+    this.setInputState('READY');
+    this.publishStageProgress();
+    this.publishSession();
+  }
+
+  private async playCascade(cascade: CascadeResult): Promise<CascadeAnimationResult> {
+    if (!this.session || !this.metrics) {
+      return {
+        scoreGained: 0,
+        removedTiles: [],
+        cascadeCount: 0,
+      };
+    }
+
     this.session.cascadeCount = cascade.steps.length;
+    let scoreGained = 0;
+    const removedTiles: Array<{ kind: TileKind }> = [];
 
     for (let index = 0; index < cascade.steps.length; index += 1) {
       const step = cascade.steps[index];
@@ -381,6 +454,12 @@ export class Match3Scene extends Phaser.Scene {
         .map((position) => getTileAt(step.boardBefore, position))
         .map((tile) => (tile ? this.tileViews.get(tile.id) : undefined))
         .filter((view): view is TileView => Boolean(view));
+      removedTiles.push(
+        ...step.removedPositions
+          .map((position) => getTileAt(step.boardBefore, position))
+          .filter((tile): tile is BoardTile => Boolean(tile))
+          .map((tile) => ({ kind: tile.kind })),
+      );
 
       await popTileViews(popViews);
       for (const view of popViews) {
@@ -388,7 +467,9 @@ export class Match3Scene extends Phaser.Scene {
         view.destroy();
       }
 
-      this.session.score += scoreRemovedTiles(step.removedPositions.length, cascadeIndex);
+      const stepScore = scoreRemovedTiles(step.removedPositions.length, cascadeIndex);
+      scoreGained += stepScore;
+      this.session.score += stepScore;
       this.setInputState('DROPPING');
       const movements = deriveTileMovements(step.boardBefore, step.droppedBoard);
       await Promise.all(
@@ -434,6 +515,12 @@ export class Match3Scene extends Phaser.Scene {
         await this.delay(EFFECT_TIMINGS.cascadeDelayMs);
       }
     }
+
+    return {
+      scoreGained,
+      removedTiles,
+      cascadeCount: cascade.steps.length,
+    };
   }
 
   private positionFromDirection(position: BoardPosition, direction: SwipeDirection): BoardPosition {
@@ -480,8 +567,31 @@ export class Match3Scene extends Phaser.Scene {
     this.updateDebugSnapshot();
   }
 
+  private publishStageProgress() {
+    if (!this.session || !this.stageSession) {
+      return;
+    }
+
+    this.options.onStageProgress?.(toStageProgressSummary(this.stageSession, this.session.inputState));
+    this.updateDebugSnapshot();
+  }
+
+  private publishStageFinished() {
+    if (!this.stageSession || this.finishPublished) {
+      return;
+    }
+
+    const result = toStageFinishResult(this.stageSession, this.getStage());
+    if (!result) {
+      return;
+    }
+
+    this.finishPublished = true;
+    this.options.onStageFinished?.(result);
+  }
+
   private updateDebugSnapshot() {
-    if (!this.session || !this.metrics || typeof window === 'undefined') {
+    if (!this.session || !this.stageSession || !this.metrics || typeof window === 'undefined') {
       return;
     }
 
@@ -507,6 +617,14 @@ export class Match3Scene extends Phaser.Scene {
       inputLocked: !canAcceptBoardInput(this.session.inputState),
       possibleMoves: findPossibleMoves(this.session.board),
       boardKinds: boardToKindRows(this.session.board),
+      stageId: this.stageSession.stageId,
+      stageStatus: this.stageSession.status,
+      movesRemaining: this.stageSession.movesRemaining,
+      missionProgress: this.stageSession.missionProgress
+        .map((mission) => `${mission.current}/${mission.required}`)
+        .join(','),
+      firstClear: 'react-owned',
+      rewardPending: this.stageSession.status === 'won',
     };
   }
 

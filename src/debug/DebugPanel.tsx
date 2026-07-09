@@ -20,6 +20,12 @@ interface HaimpangDebugSnapshot {
   cascadeCount: number;
   seed: string;
   inputLocked: boolean;
+  stageId?: number;
+  stageStatus?: string;
+  movesRemaining?: number;
+  missionProgress?: string;
+  firstClear?: string;
+  rewardPending?: boolean;
 }
 
 interface DebugMetrics {
@@ -96,6 +102,14 @@ export function DebugPanel({ activeRoute, save }: DebugPanelProps) {
           <span>score: {metrics.session.score}</span>
           <span>moves: {metrics.session.moveCount}</span>
           <span>cascade: {metrics.session.cascadeCount}</span>
+          <span>stage: {metrics.session.stageId ?? 'n/a'}</span>
+          <span>stage-status: {metrics.session.stageStatus ?? 'n/a'}</span>
+          <span>moves-left: {metrics.session.movesRemaining ?? 'n/a'}</span>
+          <span>missions: {metrics.session.missionProgress ?? 'n/a'}</span>
+          <span>first-clear: {metrics.session.firstClear ?? 'n/a'}</span>
+          <span>reward-pending: {String(metrics.session.rewardPending ?? false)}</span>
+          <span>unlocked: {save.unlockedStages.join(',')}</span>
+          <span>cleared: {save.clearedStages.join(',')}</span>
           <span>seed: {metrics.session.seed}</span>
         </>
       )}

@@ -1,4 +1,4 @@
-import type { StageData } from '../../data/stages';
+import type { StageDefinition } from '../../data/stages';
 
 export interface StageProgress {
   score: number;
@@ -7,7 +7,7 @@ export interface StageProgress {
   isLose: boolean;
 }
 
-export function createInitialStageProgress(stage: StageData): StageProgress {
+export function createInitialStageProgress(stage: StageDefinition): StageProgress {
   return {
     score: 0,
     movesLeft: stage.moveLimit,
