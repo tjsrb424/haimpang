@@ -2,6 +2,8 @@
 
 HAIMPANG is being rebuilt as a mobile-first personal match-3 PWA.
 
+Device/layout decisions follow `docs/device-target-policy.md`: HAIMPANG targets an installed Android PWA experience on Galaxy Ultra-class portrait phones, not a fully responsive desktop web game.
+
 ## Current Scope
 
 - Vite + React + TypeScript app shell.
@@ -10,6 +12,7 @@ HAIMPANG is being rebuilt as a mobile-first personal match-3 PWA.
 - PWA manifest and app launcher icon assets.
 - Versioned localStorage save manager skeleton.
 - Sprint 1 design tokens, asset-use rules, and icon-free in-game placeholder board.
+- Fixed device target policy for Galaxy Ultra-class Android PWA layout QA.
 
 ## Commands
 
