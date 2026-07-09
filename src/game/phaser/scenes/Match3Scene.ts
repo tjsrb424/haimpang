@@ -17,6 +17,7 @@ import {
   popTileViews,
   swapTileViews,
 } from '../animation/boardTweens';
+import { playComboEffect, shouldShowHaimpangBurst } from '../animation/comboEffects';
 import { playFeedback } from '../animation/effects';
 import { TileView } from '../objects/TileView';
 import {
@@ -92,6 +93,8 @@ type DebugWindow = Window & {
     lastSpecialCreated: string;
     lastSpecialActivated: string;
     lastSpecialAffectedCount: number;
+    lastComboCount: number;
+    lastComboEffect: string;
     firstClear: string;
     rewardPending: boolean;
   };
@@ -110,6 +113,8 @@ export class Match3Scene extends Phaser.Scene {
   private lastSpecialCreated = 'none';
   private lastSpecialActivated = 'none';
   private lastSpecialAffectedCount = 0;
+  private lastComboCount = 0;
+  private lastComboEffect = 'none';
 
   constructor(options: Match3SceneOptions = {}) {
     super('Match3Scene');
@@ -463,13 +468,26 @@ export class Match3Scene extends Phaser.Scene {
     const removedTiles: Array<{ kind: TileKind }> = [];
     const createdSpecials: Array<{ specialKind: SpecialTileKind }> = [];
     const activatedSpecials: Array<{ specialKind: SpecialTileKind }> = [];
+    this.lastComboCount = 0;
+    this.lastComboEffect = 'none';
 
     for (let index = 0; index < cascade.steps.length; index += 1) {
       const step = cascade.steps[index];
       const cascadeIndex = index + 1;
       this.session.lastMatches = step.matches;
       this.setInputState('POPPING');
-      playFeedback('pop', this.options.vibrationEnabled);
+      playFeedback(step.specialActivations.length > 0 ? 'special-pop' : 'pop', this.options.vibrationEnabled);
+      if (cascadeIndex >= 2) {
+        this.lastComboCount = cascadeIndex;
+        this.lastComboEffect = shouldShowHaimpangBurst(cascadeIndex) ? 'haimpang' : 'combo';
+        this.time.delayedCall(28, () => {
+          playFeedback(
+            shouldShowHaimpangBurst(cascadeIndex) ? 'haimpang-finish' : 'combo-up',
+            this.options.vibrationEnabled,
+          );
+        });
+        this.updateDebugSnapshot();
+      }
       createdSpecials.push(
         ...step.specialCreations.map((creation) => ({ specialKind: creation.specialKind })),
       );
@@ -512,7 +530,10 @@ export class Match3Scene extends Phaser.Scene {
           .map((tile) => ({ kind: tile.kind })),
       );
 
-      await popTileViews(popViews);
+      await Promise.all([
+        popTileViews(popViews),
+        playComboEffect(this, cascadeIndex, step.removedPositions, this.metrics),
+      ]);
       for (const view of popViews) {
         this.tileViews.delete(view.tileId);
         view.destroy();
@@ -697,6 +718,8 @@ export class Match3Scene extends Phaser.Scene {
       lastSpecialCreated: this.lastSpecialCreated,
       lastSpecialActivated: this.lastSpecialActivated,
       lastSpecialAffectedCount: this.lastSpecialAffectedCount,
+      lastComboCount: this.lastComboCount,
+      lastComboEffect: this.lastComboEffect,
       firstClear: 'react-owned',
       rewardPending: this.stageSession.status === 'won',
     };

@@ -30,6 +30,8 @@ interface HaimpangDebugSnapshot {
   lastSpecialCreated?: string;
   lastSpecialActivated?: string;
   lastSpecialAffectedCount?: number;
+  lastComboCount?: number;
+  lastComboEffect?: string;
   firstClear?: string;
   rewardPending?: boolean;
 }
@@ -118,6 +120,8 @@ export function DebugPanel({ activeRoute, save }: DebugPanelProps) {
           <span>last-created: {metrics.session.lastSpecialCreated ?? 'none'}</span>
           <span>last-activated: {metrics.session.lastSpecialActivated ?? 'none'}</span>
           <span>last-affected: {metrics.session.lastSpecialAffectedCount ?? 0}</span>
+          <span>last-combo: {metrics.session.lastComboCount ?? 0}</span>
+          <span>combo-effect: {metrics.session.lastComboEffect ?? 'none'}</span>
           <span>first-clear: {metrics.session.firstClear ?? 'n/a'}</span>
           <span>reward-pending: {String(metrics.session.rewardPending ?? false)}</span>
           <span>unlocked: {save.unlockedStages.join(',')}</span>

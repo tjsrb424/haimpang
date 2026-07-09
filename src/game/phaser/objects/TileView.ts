@@ -16,6 +16,7 @@ export class TileView {
   private label: Phaser.GameObjects.Text;
   private selection: Phaser.GameObjects.Graphics;
   private selectedTween: Phaser.Tweens.Tween | null = null;
+  private currentTileSize = 40;
 
   constructor(scene: Phaser.Scene, tile: BoardTile, metrics: BoardLayoutMetrics, spawnRow = tile.position.row) {
     this.scene = scene;
@@ -74,6 +75,7 @@ export class TileView {
     const style = getTileStyleByKind(this.kind);
     const radius = Math.max(10, metrics.tileSize * 0.25);
 
+    this.currentTileSize = metrics.tileSize;
     this.graphics.clear();
     this.selection.clear();
 
@@ -187,17 +189,95 @@ export class TileView {
   }
 
   playPop(): Promise<void> {
-    return new Promise((resolve) => {
-      this.container.setDepth(8);
+    if (this.selectedTween) {
+      this.selectedTween.stop();
+      this.selectedTween = null;
+    }
+
+    const burst = this.createPopBurst();
+    const burstDuration = this.specialKind ? 270 : 230;
+    const shrinkDuration = this.specialKind ? 150 : 130;
+
+    const burstTween = new Promise<void>((resolve) => {
       this.scene.tweens.add({
-        targets: this.container,
-        scale: 0.1,
-        alpha: 0,
-        duration: 120,
-        ease: 'Back.easeIn',
-        onComplete: () => resolve(),
+        targets: burst,
+        scale: { from: 0.72, to: this.specialKind ? 1.28 : 1.12 },
+        alpha: { from: 0.96, to: 0 },
+        duration: burstDuration,
+        ease: 'Cubic.easeOut',
+        onComplete: () => {
+          burst.destroy();
+          resolve();
+        },
       });
     });
+
+    const tileTween = new Promise<void>((resolve) => {
+      this.container.setDepth(this.specialKind ? 9 : 8);
+      this.container.setScale(1);
+      this.container.setAlpha(1);
+      this.scene.tweens.add({
+        targets: this.container,
+        scale: this.specialKind ? 1.12 : 1.08,
+        duration: 70,
+        ease: 'Sine.easeOut',
+        onComplete: () => {
+          this.scene.tweens.add({
+            targets: this.container,
+            scale: 0.08,
+            alpha: 0,
+            duration: shrinkDuration,
+            ease: 'Back.easeIn',
+            onComplete: () => resolve(),
+          });
+        },
+      });
+    });
+
+    return Promise.all([burstTween, tileTween]).then(() => undefined);
+  }
+
+  private createPopBurst(): Phaser.GameObjects.Graphics {
+    const style = getTileStyleByKind(this.kind);
+    const size = this.currentTileSize;
+    const center = size / 2;
+    const radius = size * (this.specialKind ? 0.74 : 0.56);
+    const dotCount = this.specialKind ? 10 : 6;
+    const rayCount = this.specialKind ? 8 : 4;
+    const graphics = this.scene.add.graphics();
+
+    graphics.setDepth(this.specialKind ? 14 : 10);
+    graphics.setPosition(this.container.x + center, this.container.y + center);
+    graphics.lineStyle(this.specialKind ? 3 : 2, 0xffffff, this.specialKind ? 0.82 : 0.66);
+    graphics.strokeCircle(0, 0, radius * 0.44);
+    graphics.lineStyle(2, style.stroke, this.specialKind ? 0.58 : 0.4);
+    graphics.strokeCircle(0, 0, radius * 0.72);
+
+    for (let index = 0; index < rayCount; index += 1) {
+      const angle = (Math.PI * 2 * index) / rayCount + 0.18;
+      const inner = radius * 0.36;
+      const outer = radius * (this.specialKind ? 1.06 : 0.92);
+
+      graphics.lineStyle(this.specialKind ? 3 : 2, index % 2 === 0 ? 0xfffbef : style.fill, 0.62);
+      graphics.lineBetween(
+        Math.cos(angle) * inner,
+        Math.sin(angle) * inner,
+        Math.cos(angle) * outer,
+        Math.sin(angle) * outer,
+      );
+    }
+
+    for (let index = 0; index < dotCount; index += 1) {
+      const angle = (Math.PI * 2 * index) / dotCount + (this.specialKind ? 0.1 : 0.32);
+      const distance = radius * (0.72 + (index % 3) * 0.12);
+      const dotRadius = Math.max(2, size * (this.specialKind && index % 2 === 0 ? 0.09 : 0.065));
+      const color = index % 3 === 0 ? 0xfffbef : index % 2 === 0 ? style.fill : style.stroke;
+
+      graphics.fillStyle(color, index % 3 === 0 ? 0.95 : 0.78);
+      graphics.fillCircle(Math.cos(angle) * distance, Math.sin(angle) * distance, dotRadius);
+    }
+
+    return graphics;
   }
 
   destroy(): void {
