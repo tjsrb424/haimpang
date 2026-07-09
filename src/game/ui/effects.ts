@@ -1,5 +1,6 @@
 export const EFFECT_TIMINGS = {
   swapMs: 135,
+  invalidForwardMs: 90,
   invalidRollbackMs: 125,
   popMs: 120,
   dropMsPerCell: 55,

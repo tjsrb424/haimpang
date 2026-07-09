@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
-import { Match3Scene } from './scenes/Match3Scene';
+import { Match3Scene, type Match3SceneOptions } from './scenes/Match3Scene';
 import { ResultScene } from './scenes/ResultScene';
 
-export function createGame(parent: HTMLElement): Phaser.Game {
+export function createGame(parent: HTMLElement, options: Match3SceneOptions = {}): Phaser.Game {
   const width = Math.max(parent.clientWidth, 320);
   const height = Math.max(parent.clientHeight, 420);
 
@@ -25,7 +25,7 @@ export function createGame(parent: HTMLElement): Phaser.Game {
       width,
       height,
     },
-    scene: [BootScene, Match3Scene, ResultScene],
+    scene: [BootScene, new Match3Scene(options), ResultScene],
   };
 
   return new Phaser.Game(config);

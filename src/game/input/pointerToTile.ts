@@ -1,33 +1,37 @@
-import { BOARD_HEIGHT, BOARD_WIDTH } from '../core/board';
 import type { BoardPosition } from '../core/types';
 
-export interface BoardHitArea {
+export interface BoardLayoutMetrics {
   originX: number;
   originY: number;
   tileSize: number;
   gap: number;
+  boardWidth: number;
+  boardHeight: number;
 }
 
-export function pointerToTile(x: number, y: number, area: BoardHitArea): BoardPosition | null {
-  const relativeX = x - area.originX;
-  const relativeY = y - area.originY;
-  const stride = area.tileSize + area.gap;
+export function pointerToTile(
+  pointer: { x: number; y: number },
+  metrics: BoardLayoutMetrics,
+): BoardPosition | null {
+  const relativeX = pointer.x - metrics.originX;
+  const relativeY = pointer.y - metrics.originY;
 
-  if (relativeX < 0 || relativeY < 0) {
+  if (relativeX < metrics.gap || relativeY < metrics.gap) {
     return null;
   }
 
-  const col = Math.floor(relativeX / stride);
-  const row = Math.floor(relativeY / stride);
+  const stride = metrics.tileSize + metrics.gap;
+  const col = Math.floor((relativeX - metrics.gap) / stride);
+  const row = Math.floor((relativeY - metrics.gap) / stride);
 
-  if (row < 0 || row >= BOARD_HEIGHT || col < 0 || col >= BOARD_WIDTH) {
+  if (row < 0 || row >= metrics.boardHeight || col < 0 || col >= metrics.boardWidth) {
     return null;
   }
 
-  const localX = relativeX - col * stride;
-  const localY = relativeY - row * stride;
+  const localX = relativeX - metrics.gap - col * stride;
+  const localY = relativeY - metrics.gap - row * stride;
 
-  if (localX > area.tileSize || localY > area.tileSize) {
+  if (localX < 0 || localY < 0 || localX >= metrics.tileSize || localY >= metrics.tileSize) {
     return null;
   }
 

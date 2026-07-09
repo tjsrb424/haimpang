@@ -3,15 +3,24 @@ export type SwipeDirection = 'left' | 'right' | 'up' | 'down';
 export interface SwipeResult {
   direction: SwipeDirection | null;
   distance: number;
-  reason: 'accepted' | 'below_threshold' | 'ambiguous';
+  reason: 'confirmed' | 'below-threshold' | 'ambiguous';
 }
 
-export function detectSwipe(
-  dx: number,
-  dy: number,
-  tileSize: number,
-  ratioThreshold = 1.25,
-): SwipeResult {
+export function detectSwipeDirection({
+  startX,
+  startY,
+  currentX,
+  currentY,
+  tileSize,
+}: {
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+  tileSize: number;
+}): SwipeResult {
+  const dx = currentX - startX;
+  const dy = currentY - startY;
   const absX = Math.abs(dx);
   const absY = Math.abs(dy);
   const dominant = Math.max(absX, absY);
@@ -19,16 +28,26 @@ export function detectSwipe(
   const threshold = Math.max(14, tileSize * 0.22);
 
   if (dominant < threshold) {
-    return { direction: null, distance: dominant, reason: 'below_threshold' };
+    return { direction: null, distance: dominant, reason: 'below-threshold' };
   }
 
-  if (secondary > 0 && dominant < secondary * ratioThreshold) {
+  if (dominant < secondary * 1.25) {
     return { direction: null, distance: dominant, reason: 'ambiguous' };
   }
 
   if (absX > absY) {
-    return { direction: dx > 0 ? 'right' : 'left', distance: dominant, reason: 'accepted' };
+    return { direction: dx > 0 ? 'right' : 'left', distance: dominant, reason: 'confirmed' };
   }
 
-  return { direction: dy > 0 ? 'down' : 'up', distance: dominant, reason: 'accepted' };
+  return { direction: dy > 0 ? 'down' : 'up', distance: dominant, reason: 'confirmed' };
+}
+
+export function detectSwipe(dx: number, dy: number, tileSize: number): SwipeResult {
+  return detectSwipeDirection({
+    startX: 0,
+    startY: 0,
+    currentX: dx,
+    currentY: dy,
+    tileSize,
+  });
 }

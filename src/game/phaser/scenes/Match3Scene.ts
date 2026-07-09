@@ -1,119 +1,525 @@
 import Phaser from 'phaser';
-import { createInitialBoard } from '../../core/board';
-import { BOARD_HEIGHT, BOARD_WIDTH } from '../../core/board';
-import type { BoardGrid } from '../../core/types';
-import { getTileStyleByKind } from '../../ui/tileFactory';
+import { BOARD_HEIGHT, BOARD_WIDTH, boardToKindRows, isInsideBoard } from '../../core/board';
+import { resolveCascade } from '../../core/cascade';
+import { getTile } from '../../core/board';
+import { findPossibleMoves } from '../../core/shuffle';
+import { trySwap } from '../../core/swap';
+import type { BoardPosition, CascadeResult } from '../../core/types';
+import { canAcceptBoardInput, canStartGesture, type InputState } from '../../input/inputState';
+import { pointerToTile, type BoardLayoutMetrics } from '../../input/pointerToTile';
+import { detectSwipeDirection, type SwipeDirection } from '../../input/swipeDetector';
+import { EFFECT_TIMINGS } from '../../ui/effects';
+import { invalidSwapRollback, moveTileView, popTileViews, swapTileViews } from '../animation/boardTweens';
+import { playFeedback } from '../animation/effects';
+import { TileView } from '../objects/TileView';
+import {
+  deriveRefillSpawns,
+  deriveTileMovements,
+  getTileAt,
+} from '../session/boardViewMapper';
+import {
+  createGameSession,
+  scoreRemovedTiles,
+  toSessionSummary,
+  type GameSession,
+  type GameSessionSummary,
+} from '../session/GameSession';
 
-const PREVIEW_SEED = 'haimpang-sprint2-preview';
+const SESSION_SEED = 'haimpang-sprint3-live';
+
+interface PointerGesture {
+  startX: number;
+  startY: number;
+  tile: BoardPosition;
+  swipeHandled: boolean;
+  blockedByAmbiguousSwipe: boolean;
+}
+
+export interface Match3SceneOptions {
+  onSessionChange?: (summary: GameSessionSummary) => void;
+  vibrationEnabled?: boolean;
+}
+
+type DebugWindow = Window & {
+  __haimpangDebug?: {
+    inputState: InputState;
+    selectedTile: string;
+    pointerDownTile: string;
+    lastSwipeDirection: string;
+    boardSize: number;
+    tileSize: number;
+    score: number;
+    moveCount: number;
+    cascadeCount: number;
+    seed: string;
+    inputLocked: boolean;
+    possibleMoves: Array<{ from: BoardPosition; to: BoardPosition }>;
+    boardKinds: string[][];
+  };
+};
 
 export class Match3Scene extends Phaser.Scene {
-  private previewBoard: BoardGrid | null = null;
+  private session: GameSession | null = null;
+  private metrics: BoardLayoutMetrics | null = null;
+  private background: Phaser.GameObjects.Graphics | null = null;
+  private frame: Phaser.GameObjects.Graphics | null = null;
+  private tileViews = new Map<string, TileView>();
+  private pointerGesture: PointerGesture | null = null;
+  private options: Match3SceneOptions;
 
-  constructor() {
+  constructor(options: Match3SceneOptions = {}) {
     super('Match3Scene');
+    this.options = options;
   }
 
   create() {
-    this.previewBoard = createInitialBoard({ seed: PREVIEW_SEED });
-    this.drawBoard();
-    this.scale.on('resize', this.drawBoard, this);
+    this.session = createGameSession(SESSION_SEED);
+    this.renderBoard();
+    this.publishSession();
+    this.updateDebugSnapshot();
+
+    this.input.on('pointerdown', this.handlePointerDown, this);
+    this.input.on('pointermove', this.handlePointerMove, this);
+    this.input.on('pointerup', this.handlePointerUp, this);
+    this.input.on('pointerupoutside', this.handlePointerUp, this);
+    this.scale.on('resize', this.handleResize, this);
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.scale.off('resize', this.drawBoard, this);
+      this.input.off('pointerdown', this.handlePointerDown, this);
+      this.input.off('pointermove', this.handlePointerMove, this);
+      this.input.off('pointerup', this.handlePointerUp, this);
+      this.input.off('pointerupoutside', this.handlePointerUp, this);
+      this.scale.off('resize', this.handleResize, this);
+      this.destroyTileViews();
     });
   }
 
-  private drawBoard() {
-    this.children.removeAll(true);
+  private handleResize() {
+    this.renderBoard();
+    this.updateDebugSnapshot();
+  }
 
+  private setInputState(inputState: InputState) {
+    if (!this.session) {
+      return;
+    }
+
+    this.session.inputState = inputState;
+    this.session.isBusy = !canAcceptBoardInput(inputState) && inputState !== 'POINTER_DOWN' && inputState !== 'DRAGGING';
+    this.updateDebugSnapshot();
+  }
+
+  private calculateMetrics(): BoardLayoutMetrics {
     const width = this.scale.width;
     const height = this.scale.height;
     const boardSize = Math.floor(Math.min(width * 0.96, height * 0.96, 402));
     const gap = Math.max(5, Math.floor(boardSize * 0.014));
     const tileSize = Math.floor((boardSize - gap * (BOARD_WIDTH + 1)) / BOARD_WIDTH);
     const actualBoardSize = tileSize * BOARD_WIDTH + gap * (BOARD_WIDTH + 1);
-    const originX = Math.round((width - actualBoardSize) / 2);
-    const originY = Math.round((height - actualBoardSize) / 2);
 
-    this.drawBackground(width, height);
-    this.drawBoardFrame(originX, originY, actualBoardSize);
-    this.drawTiles(originX, originY, tileSize, gap);
+    return {
+      originX: Math.round((width - actualBoardSize) / 2),
+      originY: Math.round((height - actualBoardSize) / 2),
+      tileSize,
+      gap,
+      boardWidth: BOARD_WIDTH,
+      boardHeight: BOARD_HEIGHT,
+    };
   }
 
-  private drawBackground(width: number, height: number) {
-    const bg = this.add.graphics();
-    bg.fillGradientStyle(0xfffbf7, 0xfffbf7, 0xffeef4, 0xfff3ec, 1);
-    bg.fillRect(0, 0, width, height);
-
-    bg.fillStyle(0xff7197, 0.11);
-    bg.fillCircle(width * 0.16, height * 0.16, Math.min(width, height) * 0.18);
-    bg.fillStyle(0x8f7cf7, 0.1);
-    bg.fillCircle(width * 0.9, height * 0.2, Math.min(width, height) * 0.2);
-    bg.fillStyle(0x65c7b4, 0.09);
-    bg.fillCircle(width * 0.12, height * 0.9, Math.min(width, height) * 0.16);
-
-    for (let index = 0; index < 11; index += 1) {
-      const x = (width * ((index * 37) % 100)) / 100;
-      const y = (height * ((index * 53 + 17) % 100)) / 100;
-      bg.fillStyle(index % 2 === 0 ? 0xffd36a : 0xffffff, 0.2);
-      bg.fillCircle(x, y, index % 3 === 0 ? 3 : 2);
+  private renderBoard() {
+    if (!this.session) {
+      return;
     }
-  }
 
-  private drawBoardFrame(originX: number, originY: number, boardSize: number) {
-    const frame = this.add.graphics();
-    frame.fillStyle(0xffffff, 0.72);
-    frame.fillRoundedRect(originX - 10, originY - 10, boardSize + 20, boardSize + 20, 24);
-    frame.lineStyle(2, 0xffb6c8, 0.55);
-    frame.strokeRoundedRect(originX - 9, originY - 9, boardSize + 18, boardSize + 18, 24);
+    this.children.removeAll(true);
+    this.tileViews.clear();
+    this.metrics = this.calculateMetrics();
+    this.background = this.add.graphics();
+    this.frame = this.add.graphics();
+    this.drawBackground();
+    this.drawBoardFrame();
 
-    frame.fillStyle(0xfff0f4, 0.74);
-    frame.fillRoundedRect(originX, originY, boardSize, boardSize, 18);
-  }
-
-  private drawTiles(originX: number, originY: number, tileSize: number, gap: number) {
-    for (let row = 0; row < BOARD_HEIGHT; row += 1) {
-      for (let col = 0; col < BOARD_WIDTH; col += 1) {
-        const kind = this.previewBoard?.[row]?.[col]?.kind ?? 'heart';
-        const style = getTileStyleByKind(kind);
-        const x = originX + gap + col * (tileSize + gap);
-        const y = originY + gap + row * (tileSize + gap);
-        const tile = this.add.graphics();
-        const radius = Math.max(10, tileSize * 0.25);
-
-        tile.fillStyle(style.shadow, 0.15);
-        tile.fillRoundedRect(x + 2, y + 4, tileSize, tileSize, radius);
-        tile.fillStyle(style.fill, 1);
-
-        if (style.shape === 'circle') {
-          tile.fillCircle(x + tileSize / 2, y + tileSize / 2, tileSize * 0.46);
-        } else if (style.shape === 'diamond') {
-          tile.beginPath();
-          tile.moveTo(x + tileSize / 2, y + 2);
-          tile.lineTo(x + tileSize - 2, y + tileSize / 2);
-          tile.lineTo(x + tileSize / 2, y + tileSize - 2);
-          tile.lineTo(x + 2, y + tileSize / 2);
-          tile.closePath();
-          tile.fillPath();
-        } else if (style.shape === 'pill') {
-          tile.fillRoundedRect(x + 2, y + tileSize * 0.12, tileSize - 4, tileSize * 0.76, tileSize * 0.38);
-        } else {
-          tile.fillRoundedRect(x, y, tileSize, tileSize, radius);
+    for (const row of this.session.board) {
+      for (const tile of row) {
+        if (!tile) {
+          continue;
         }
-
-        tile.lineStyle(2, style.stroke, 0.52);
-        tile.strokeRoundedRect(x + 1, y + 1, tileSize - 2, tileSize - 2, radius);
-        tile.fillStyle(0xffffff, 0.24);
-        tile.fillCircle(x + tileSize * 0.32, y + tileSize * 0.26, Math.max(2, tileSize * 0.09));
-
-        this.add
-          .text(x + tileSize / 2, y + tileSize / 2, style.label, {
-            fontFamily: 'Arial, sans-serif',
-            fontSize: `${Math.max(12, tileSize * 0.3)}px`,
-            color: style.text,
-            fontStyle: '900',
-          })
-          .setOrigin(0.5);
+        const view = new TileView(this, tile, this.metrics);
+        this.tileViews.set(tile.id, view);
       }
     }
+
+    this.syncSelection();
+  }
+
+  private drawBackground() {
+    if (!this.background) {
+      return;
+    }
+
+    const width = this.scale.width;
+    const height = this.scale.height;
+    this.background.clear();
+    this.background.setDepth(0);
+    this.background.fillGradientStyle(0xfffbf7, 0xfffbf7, 0xffeef4, 0xfff3ec, 1);
+    this.background.fillRect(0, 0, width, height);
+
+    this.background.fillStyle(0xff7197, 0.11);
+    this.background.fillCircle(width * 0.16, height * 0.16, Math.min(width, height) * 0.18);
+    this.background.fillStyle(0x8f7cf7, 0.1);
+    this.background.fillCircle(width * 0.9, height * 0.2, Math.min(width, height) * 0.2);
+    this.background.fillStyle(0x65c7b4, 0.09);
+    this.background.fillCircle(width * 0.12, height * 0.9, Math.min(width, height) * 0.16);
+  }
+
+  private drawBoardFrame() {
+    if (!this.frame || !this.metrics) {
+      return;
+    }
+
+    const boardSize = this.metrics.tileSize * BOARD_WIDTH + this.metrics.gap * (BOARD_WIDTH + 1);
+    const { originX, originY } = this.metrics;
+
+    this.frame.clear();
+    this.frame.setDepth(1);
+    this.frame.fillStyle(0xffffff, 0.72);
+    this.frame.fillRoundedRect(originX - 10, originY - 10, boardSize + 20, boardSize + 20, 24);
+    this.frame.lineStyle(2, 0xffb6c8, 0.55);
+    this.frame.strokeRoundedRect(originX - 9, originY - 9, boardSize + 18, boardSize + 18, 24);
+    this.frame.fillStyle(0xfff0f4, 0.74);
+    this.frame.fillRoundedRect(originX, originY, boardSize, boardSize, 18);
+  }
+
+  private handlePointerDown(pointer: Phaser.Input.Pointer) {
+    if (!this.session || !this.metrics || !canStartGesture(this.session.inputState)) {
+      return;
+    }
+
+    const tile = pointerToTile({ x: pointer.x, y: pointer.y }, this.metrics);
+    if (!tile) {
+      return;
+    }
+
+    this.session.pointerDownTile = tile;
+    this.pointerGesture = {
+      startX: pointer.x,
+      startY: pointer.y,
+      tile,
+      swipeHandled: false,
+      blockedByAmbiguousSwipe: false,
+    };
+    this.setInputState('POINTER_DOWN');
+  }
+
+  private handlePointerMove(pointer: Phaser.Input.Pointer) {
+    if (!this.session || !this.metrics || !this.pointerGesture || this.pointerGesture.swipeHandled) {
+      return;
+    }
+
+    if (this.session.inputState !== 'POINTER_DOWN' && this.session.inputState !== 'DRAGGING') {
+      return;
+    }
+
+    const swipe = detectSwipeDirection({
+      startX: this.pointerGesture.startX,
+      startY: this.pointerGesture.startY,
+      currentX: pointer.x,
+      currentY: pointer.y,
+      tileSize: this.metrics.tileSize,
+    });
+
+    if (swipe.reason === 'below-threshold') {
+      return;
+    }
+
+    this.setInputState('DRAGGING');
+
+    if (!swipe.direction) {
+      this.session.lastSwipeDirection = null;
+      this.pointerGesture.blockedByAmbiguousSwipe = true;
+      return;
+    }
+
+    this.session.lastSwipeDirection = swipe.direction;
+    this.pointerGesture.swipeHandled = true;
+    const from = this.pointerGesture.tile;
+    const to = this.positionFromDirection(from, swipe.direction);
+    this.pointerGesture = null;
+    this.session.pointerDownTile = null;
+    void this.attemptSwap(from, to);
+  }
+
+  private handlePointerUp() {
+    if (!this.session || !this.pointerGesture) {
+      return;
+    }
+
+    const gesture = this.pointerGesture;
+    this.pointerGesture = null;
+    this.session.pointerDownTile = null;
+
+    if (gesture.swipeHandled) {
+      return;
+    }
+
+    if (gesture.blockedByAmbiguousSwipe) {
+      this.setInputState('READY');
+      return;
+    }
+
+    this.setInputState('READY');
+    void this.handleTap(gesture.tile);
+  }
+
+  private async handleTap(tile: BoardPosition): Promise<void> {
+    if (!this.session || !canAcceptBoardInput(this.session.inputState)) {
+      return;
+    }
+
+    const selected = this.session.selectedTile;
+    if (!selected) {
+      this.session.selectedTile = tile;
+      this.syncSelection();
+      this.updateDebugSnapshot();
+      return;
+    }
+
+    if (selected.row === tile.row && selected.col === tile.col) {
+      this.session.selectedTile = null;
+      this.syncSelection();
+      this.updateDebugSnapshot();
+      return;
+    }
+
+    if (Math.abs(selected.row - tile.row) + Math.abs(selected.col - tile.col) === 1) {
+      await this.attemptSwap(selected, tile);
+      return;
+    }
+
+    this.session.selectedTile = tile;
+    this.syncSelection();
+    this.updateDebugSnapshot();
+  }
+
+  private async attemptSwap(from: BoardPosition, to: BoardPosition): Promise<void> {
+    if (!this.session || !this.metrics) {
+      return;
+    }
+
+    this.session.pointerDownTile = null;
+
+    if (!isInsideBoard(to.row, to.col, BOARD_WIDTH, BOARD_HEIGHT)) {
+      this.session.selectedTile = null;
+      this.setInputState('READY');
+      this.syncSelection();
+      return;
+    }
+
+    const fromTile = getTile(this.session.board, from);
+    const toTile = getTile(this.session.board, to);
+    const fromView = fromTile ? this.tileViews.get(fromTile.id) : undefined;
+    const toView = toTile ? this.tileViews.get(toTile.id) : undefined;
+
+    if (!fromTile || !toTile || !fromView || !toView) {
+      this.session.selectedTile = null;
+      this.setInputState('READY');
+      this.syncSelection();
+      return;
+    }
+
+    this.setInputState('SWAP_ATTEMPT');
+    const result = trySwap(this.session.board, { from, to });
+
+    if (!result.valid) {
+      this.setInputState('INVALID_ROLLBACK');
+      playFeedback('swap-invalid', this.options.vibrationEnabled);
+      await invalidSwapRollback(this, fromView, toView, to, from, this.metrics);
+      this.session.selectedTile = null;
+      this.session.lastMatches = [];
+      this.syncSelection();
+      this.setInputState('READY');
+      this.publishSession();
+      return;
+    }
+
+    this.setInputState('SWAP_ANIMATING');
+    playFeedback('swap-valid', this.options.vibrationEnabled);
+    await swapTileViews(this, fromView, toView, to, from, this.metrics, EFFECT_TIMINGS.swapMs);
+    this.session.board = result.board;
+    this.session.moveCount += 1;
+    this.session.lastMatches = result.matches;
+    this.session.selectedTile = null;
+    this.syncSelection();
+    this.setInputState('MATCH_CHECK');
+
+    const cascade = resolveCascade(this.session.board, {
+      seed: `${this.session.seed}:move:${this.session.moveCount}`,
+    });
+    await this.playCascade(cascade);
+    this.session.board = cascade.finalBoard;
+    this.session.lastMatches = [];
+    this.setInputState('READY');
+    this.publishSession();
+  }
+
+  private async playCascade(cascade: CascadeResult): Promise<void> {
+    if (!this.session || !this.metrics) {
+      return;
+    }
+
+    this.session.cascadeCount = cascade.steps.length;
+
+    for (let index = 0; index < cascade.steps.length; index += 1) {
+      const step = cascade.steps[index];
+      const cascadeIndex = index + 1;
+      this.session.lastMatches = step.matches;
+      this.setInputState('POPPING');
+      playFeedback('pop', this.options.vibrationEnabled);
+
+      const popViews = step.removedPositions
+        .map((position) => getTileAt(step.boardBefore, position))
+        .map((tile) => (tile ? this.tileViews.get(tile.id) : undefined))
+        .filter((view): view is TileView => Boolean(view));
+
+      await popTileViews(popViews);
+      for (const view of popViews) {
+        this.tileViews.delete(view.tileId);
+        view.destroy();
+      }
+
+      this.session.score += scoreRemovedTiles(step.removedPositions.length, cascadeIndex);
+      this.setInputState('DROPPING');
+      const movements = deriveTileMovements(step.boardBefore, step.droppedBoard);
+      await Promise.all(
+        movements.map((movement) => {
+          const view = this.tileViews.get(movement.tileId);
+          if (!view || !this.metrics) {
+            return Promise.resolve();
+          }
+          return moveTileView(
+            this,
+            view,
+            movement.to,
+            this.metrics,
+            Math.max(80, movement.distance * EFFECT_TIMINGS.dropMsPerCell),
+          );
+        }),
+      );
+
+      this.setInputState('REFILLING');
+      const spawns = deriveRefillSpawns(step.droppedBoard, step.refilledBoard);
+      const refillViews = spawns.map((spawn) => {
+        if (!this.metrics) {
+          return null;
+        }
+        const view = new TileView(this, spawn.tile, this.metrics, spawn.spawnRow);
+        this.tileViews.set(spawn.tile.id, view);
+        return view;
+      });
+
+      await Promise.all(
+        refillViews.map((view) => {
+          if (!view || !this.metrics) {
+            return Promise.resolve();
+          }
+          return moveTileView(this, view, { row: view.row, col: view.col }, this.metrics, EFFECT_TIMINGS.refillMs);
+        }),
+      );
+
+      this.session.board = step.refilledBoard;
+      if (index < cascade.steps.length - 1) {
+        this.setInputState('CASCADE_CHECK');
+        playFeedback('cascade', this.options.vibrationEnabled);
+        await this.delay(EFFECT_TIMINGS.cascadeDelayMs);
+      }
+    }
+  }
+
+  private positionFromDirection(position: BoardPosition, direction: SwipeDirection): BoardPosition {
+    if (direction === 'left') {
+      return { row: position.row, col: position.col - 1 };
+    }
+    if (direction === 'right') {
+      return { row: position.row, col: position.col + 1 };
+    }
+    if (direction === 'up') {
+      return { row: position.row - 1, col: position.col };
+    }
+    return { row: position.row + 1, col: position.col };
+  }
+
+  private syncSelection() {
+    if (!this.session || !this.metrics) {
+      return;
+    }
+
+    for (const view of this.tileViews.values()) {
+      view.setSelected(false);
+    }
+
+    if (!this.session.selectedTile) {
+      return;
+    }
+
+    const tile = getTile(this.session.board, this.session.selectedTile);
+    if (!tile) {
+      this.session.selectedTile = null;
+      return;
+    }
+
+    this.tileViews.get(tile.id)?.setSelected(true);
+  }
+
+  private publishSession() {
+    if (!this.session) {
+      return;
+    }
+
+    this.options.onSessionChange?.(toSessionSummary(this.session));
+    this.updateDebugSnapshot();
+  }
+
+  private updateDebugSnapshot() {
+    if (!this.session || !this.metrics || typeof window === 'undefined') {
+      return;
+    }
+
+    const boardSize = this.metrics.tileSize * BOARD_WIDTH + this.metrics.gap * (BOARD_WIDTH + 1);
+    const selectedTile = this.session.selectedTile
+      ? `${this.session.selectedTile.row},${this.session.selectedTile.col}`
+      : 'none';
+    const pointerDownTile = this.session.pointerDownTile
+      ? `${this.session.pointerDownTile.row},${this.session.pointerDownTile.col}`
+      : 'none';
+
+    (window as DebugWindow).__haimpangDebug = {
+      inputState: this.session.inputState,
+      selectedTile,
+      pointerDownTile,
+      lastSwipeDirection: this.session.lastSwipeDirection ?? 'none',
+      boardSize,
+      tileSize: this.metrics.tileSize,
+      score: this.session.score,
+      moveCount: this.session.moveCount,
+      cascadeCount: this.session.cascadeCount,
+      seed: String(this.session.seed),
+      inputLocked: !canAcceptBoardInput(this.session.inputState),
+      possibleMoves: findPossibleMoves(this.session.board),
+      boardKinds: boardToKindRows(this.session.board),
+    };
+  }
+
+  private destroyTileViews() {
+    for (const view of this.tileViews.values()) {
+      view.destroy();
+    }
+    this.tileViews.clear();
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      this.time.delayedCall(ms, () => resolve());
+    });
   }
 }

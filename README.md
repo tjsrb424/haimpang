@@ -13,6 +13,7 @@ Device/layout decisions follow `docs/device-target-policy.md`: HAIMPANG targets 
 - Versioned localStorage save manager skeleton.
 - Sprint 1 design tokens, asset-use rules, and icon-free in-game placeholder board.
 - Fixed device target policy for Galaxy Ultra-class Android PWA layout QA.
+- Sprint 3 touch input, tap selection, real swap/cascade animation, and session summary wiring.
 
 ## Commands
 
