@@ -94,6 +94,49 @@ describe('stageSession', () => {
     expect(session.status).toBe('won');
   });
 
+  it('updates create_special mission progress', () => {
+    const stage: StageDefinition = {
+      ...baseStage,
+      missions: [{ type: 'create_special', specialKind: 'line_horizontal', required: 1, label: 'Create line' }],
+    };
+    const session = applyMoveResult(
+      createStageSession(stage),
+      {
+        scoreGained: 0,
+        removedTiles: [],
+        createdSpecials: [{ specialKind: 'line_horizontal' }],
+        cascadeCount: 1,
+        validMove: true,
+      },
+      stage,
+    );
+
+    expect(session.createdSpecialCounts.line_horizontal).toBe(1);
+    expect(session.missionProgress[0]).toMatchObject({ current: 1, completed: true });
+  });
+
+  it('updates activate_special any mission progress', () => {
+    const stage: StageDefinition = {
+      ...baseStage,
+      missions: [{ type: 'activate_special', specialKind: 'any', required: 2, label: 'Activate specials' }],
+    };
+    const session = applyMoveResult(
+      createStageSession(stage),
+      {
+        scoreGained: 0,
+        removedTiles: [],
+        activatedSpecials: [{ specialKind: 'bomb' }, { specialKind: 'rainbow' }],
+        cascadeCount: 1,
+        validMove: true,
+      },
+      stage,
+    );
+
+    expect(session.activatedSpecialCounts.bomb).toBe(1);
+    expect(session.activatedSpecialCounts.rainbow).toBe(1);
+    expect(session.missionProgress[0]).toMatchObject({ current: 2, completed: true });
+  });
+
   it('marks all missions complete as won', () => {
     const session = applyMoveResult(
       createStageSession(baseStage),

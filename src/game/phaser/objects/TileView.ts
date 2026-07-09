@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
-import type { BoardTile, TileKind } from '../../core/types';
+import type { BoardTile, SpecialTileKind, TileKind } from '../../core/types';
 import type { BoardLayoutMetrics } from '../../input/pointerToTile';
 import { getTileStyleByKind } from '../../ui/tileFactory';
 
 export class TileView {
   tileId: string;
   kind: TileKind;
+  specialKind?: SpecialTileKind;
   row: number;
   col: number;
   container: Phaser.GameObjects.Container;
@@ -20,6 +21,7 @@ export class TileView {
     this.scene = scene;
     this.tileId = tile.id;
     this.kind = tile.kind;
+    this.specialKind = tile.specialKind;
     this.row = tile.position.row;
     this.col = tile.position.col;
     this.graphics = scene.add.graphics();
@@ -32,6 +34,15 @@ export class TileView {
     this.container.setDepth(3);
     this.redraw(metrics);
     this.setScenePosition(spawnRow, tile.position.col, metrics);
+  }
+
+  updateTile(tile: BoardTile, metrics: BoardLayoutMetrics): void {
+    this.tileId = tile.id;
+    this.kind = tile.kind;
+    this.specialKind = tile.specialKind;
+    this.row = tile.position.row;
+    this.col = tile.position.col;
+    this.redraw(metrics);
   }
 
   setBoardPosition(row: number, col: number): void {
@@ -96,6 +107,7 @@ export class TileView {
     this.graphics.strokeRoundedRect(1, 1, metrics.tileSize - 2, metrics.tileSize - 2, radius);
     this.graphics.fillStyle(0xffffff, 0.24);
     this.graphics.fillCircle(metrics.tileSize * 0.32, metrics.tileSize * 0.26, Math.max(2, metrics.tileSize * 0.09));
+    this.drawSpecialOverlay(metrics);
 
     this.label.setText(style.label);
     this.label.setStyle({
@@ -105,6 +117,61 @@ export class TileView {
     this.label.setOrigin(0.5);
     this.label.setPosition(metrics.tileSize / 2, metrics.tileSize / 2);
     this.container.setSize(metrics.tileSize, metrics.tileSize);
+  }
+
+  private drawSpecialOverlay(metrics: BoardLayoutMetrics): void {
+    if (!this.specialKind) {
+      return;
+    }
+
+    const size = metrics.tileSize;
+    const center = size / 2;
+
+    if (this.specialKind === 'line_horizontal') {
+      this.graphics.fillStyle(0xffffff, 0.78);
+      this.graphics.fillRoundedRect(size * 0.14, center - size * 0.09, size * 0.72, size * 0.18, size * 0.09);
+      this.graphics.lineStyle(2, 0xff7197, 0.74);
+      this.graphics.lineBetween(size * 0.2, center, size * 0.8, center);
+      return;
+    }
+
+    if (this.specialKind === 'line_vertical') {
+      this.graphics.fillStyle(0xffffff, 0.78);
+      this.graphics.fillRoundedRect(center - size * 0.09, size * 0.14, size * 0.18, size * 0.72, size * 0.09);
+      this.graphics.lineStyle(2, 0xff7197, 0.74);
+      this.graphics.lineBetween(center, size * 0.2, center, size * 0.8);
+      return;
+    }
+
+    if (this.specialKind === 'bomb') {
+      this.graphics.lineStyle(3, 0xffffff, 0.85);
+      this.graphics.strokeCircle(center, center, size * 0.28);
+      this.graphics.lineStyle(2, 0xffd166, 0.9);
+      this.graphics.strokeCircle(center, center, size * 0.2);
+      for (const [x, y] of [
+        [0.28, 0.24],
+        [0.74, 0.28],
+        [0.72, 0.72],
+        [0.26, 0.7],
+      ] as const) {
+        this.graphics.fillStyle(0xffffff, 0.9);
+        this.graphics.fillCircle(size * x, size * y, Math.max(1.5, size * 0.035));
+      }
+      return;
+    }
+
+    this.graphics.lineStyle(3, 0xffffff, 0.88);
+    this.graphics.strokeCircle(center, center, size * 0.32);
+    for (const [color, offset] of [
+      [0xff7197, -0.12],
+      [0xffd166, 0],
+      [0x65c7b4, 0.12],
+    ] as const) {
+      this.graphics.lineStyle(2, color, 0.9);
+      this.graphics.beginPath();
+      this.graphics.arc(center, center + size * offset, size * 0.22, Math.PI * 0.08, Math.PI * 0.92);
+      this.graphics.strokePath();
+    }
   }
 
   setScenePosition(row: number, col: number, metrics: BoardLayoutMetrics): void {

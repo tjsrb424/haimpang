@@ -52,9 +52,29 @@ export interface SwapResult {
   matches: MatchGroup[];
 }
 
+export type SpecialActivationReason = 'matched' | 'swapped';
+
+export interface SpecialCreation {
+  position: BoardPosition;
+  kind: TileKind;
+  specialKind: SpecialTileKind;
+  sourceMatchId: string;
+}
+
+export interface SpecialActivation {
+  tileId: string;
+  position: BoardPosition;
+  kind: TileKind;
+  specialKind: SpecialTileKind;
+  affectedPositions: BoardPosition[];
+  reason: SpecialActivationReason;
+}
+
 export interface CascadeStep {
   boardBefore: BoardGrid;
   matches: MatchGroup[];
+  specialCreations: SpecialCreation[];
+  specialActivations: SpecialActivation[];
   removedPositions: BoardPosition[];
   droppedBoard: BoardGrid;
   refilledBoard: BoardGrid;
@@ -64,4 +84,13 @@ export interface CascadeResult {
   finalBoard: BoardGrid;
   steps: CascadeStep[];
   totalRemoved: number;
+}
+
+export interface MoveResolution {
+  valid: boolean;
+  board: BoardGrid;
+  swappedBoard: BoardGrid;
+  cascade: CascadeResult;
+  specialCreations: SpecialCreation[];
+  specialActivations: SpecialActivation[];
 }

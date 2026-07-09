@@ -24,6 +24,12 @@ interface HaimpangDebugSnapshot {
   stageStatus?: string;
   movesRemaining?: number;
   missionProgress?: string;
+  specialTileCount?: number;
+  createdSpecialCount?: number;
+  activatedSpecialCount?: number;
+  lastSpecialCreated?: string;
+  lastSpecialActivated?: string;
+  lastSpecialAffectedCount?: number;
   firstClear?: string;
   rewardPending?: boolean;
 }
@@ -106,6 +112,12 @@ export function DebugPanel({ activeRoute, save }: DebugPanelProps) {
           <span>stage-status: {metrics.session.stageStatus ?? 'n/a'}</span>
           <span>moves-left: {metrics.session.movesRemaining ?? 'n/a'}</span>
           <span>missions: {metrics.session.missionProgress ?? 'n/a'}</span>
+          <span>specials-board: {metrics.session.specialTileCount ?? 0}</span>
+          <span>specials-created: {metrics.session.createdSpecialCount ?? 0}</span>
+          <span>specials-activated: {metrics.session.activatedSpecialCount ?? 0}</span>
+          <span>last-created: {metrics.session.lastSpecialCreated ?? 'none'}</span>
+          <span>last-activated: {metrics.session.lastSpecialActivated ?? 'none'}</span>
+          <span>last-affected: {metrics.session.lastSpecialAffectedCount ?? 0}</span>
           <span>first-clear: {metrics.session.firstClear ?? 'n/a'}</span>
           <span>reward-pending: {String(metrics.session.rewardPending ?? false)}</span>
           <span>unlocked: {save.unlockedStages.join(',')}</span>

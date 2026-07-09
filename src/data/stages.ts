@@ -1,4 +1,6 @@
-import type { TileKind } from '../game/core/types';
+import type { SpecialTileKind, TileKind } from '../game/core/types';
+
+export type StageSpecialMissionKind = SpecialTileKind | 'any';
 
 export type StageMission =
   | {
@@ -19,6 +21,18 @@ export type StageMission =
     }
   | {
       type: 'cascade';
+      required: number;
+      label: string;
+    }
+  | {
+      type: 'create_special';
+      specialKind: StageSpecialMissionKind;
+      required: number;
+      label: string;
+    }
+  | {
+      type: 'activate_special';
+      specialKind: StageSpecialMissionKind;
       required: number;
       label: string;
     };
@@ -117,13 +131,13 @@ export const stages: StageDefinition[] = [
   },
   {
     id: 6,
-    title: 'Flower Note',
+    title: 'Ribbon Line',
     moveLimit: 23,
     missions: [
-      { type: 'collect_tile', tileKind: 'flower', required: 18, label: 'Collect 18 flowers' },
+      { type: 'create_special', specialKind: 'line_horizontal', required: 1, label: 'Create 1 line tile' },
       { type: 'score', required: 420, label: 'Score 420' },
     ],
-    reward: { stars: 4, memoryTitle: 'Flower note', memoryDescription: 'A soft flower note was added to the diary.' },
+    reward: { stars: 4, memoryTitle: 'Ribbon line', memoryDescription: 'The first line tile drew a bright ribbon.' },
     seed: 'stage-006-flower-note',
     tileKinds: defaultTileKinds,
   },
@@ -144,8 +158,8 @@ export const stages: StageDefinition[] = [
     title: 'Lunch Hint',
     moveLimit: 22,
     missions: [
+      { type: 'create_special', specialKind: 'bomb', required: 1, label: 'Create 1 bomb tile' },
       { type: 'score', required: 520, label: 'Score 520' },
-      { type: 'collect_tile', tileKind: 'candy', required: 14, label: 'Collect 14 candies' },
     ],
     reward: {
       stars: 5,
@@ -170,7 +184,7 @@ export const stages: StageDefinition[] = [
     title: 'Sparkle Mix',
     moveLimit: 22,
     missions: [
-      { type: 'cascade', required: 2, label: 'Make a 2-chain cascade' },
+      { type: 'activate_special', specialKind: 'any', required: 2, label: 'Activate 2 special tiles' },
       { type: 'score', required: 620, label: 'Score 620' },
     ],
     reward: { stars: 5, hearts: 1, memoryTitle: 'Sparkle mix', memoryDescription: 'A small sparkle chain made the board feel alive.' },
@@ -236,7 +250,7 @@ export const stages: StageDefinition[] = [
     title: 'Bright Pocket',
     moveLimit: 20,
     missions: [
-      { type: 'collect_tile', tileKind: 'star', required: 25, label: 'Collect 25 stars' },
+      { type: 'create_special', specialKind: 'rainbow', required: 1, label: 'Create 1 rainbow tile' },
       { type: 'score', required: 820, label: 'Score 820' },
     ],
     reward: { stars: 6, hearts: 1, memoryTitle: 'Bright pocket', memoryDescription: 'The star pocket got a little brighter.' },

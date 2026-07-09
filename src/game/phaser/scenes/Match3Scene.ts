@@ -1,16 +1,22 @@
 import Phaser from 'phaser';
 import { stages, type StageDefinition } from '../../../data/stages';
 import { BOARD_HEIGHT, BOARD_WIDTH, boardToKindRows, isInsideBoard } from '../../core/board';
-import { resolveCascade } from '../../core/cascade';
 import { getTile } from '../../core/board';
+import { resolveMoveWithSpecials } from '../../core/moveResolution';
 import { findPossibleMoves } from '../../core/shuffle';
-import { trySwap } from '../../core/swap';
-import type { BoardPosition, BoardTile, CascadeResult, TileKind } from '../../core/types';
+import { SPECIAL_SCORE_BONUS } from '../../core/special';
+import type { BoardPosition, BoardTile, CascadeResult, SpecialTileKind, TileKind } from '../../core/types';
 import { canAcceptBoardInput, canStartGesture, type InputState } from '../../input/inputState';
 import { pointerToTile, type BoardLayoutMetrics } from '../../input/pointerToTile';
 import { detectSwipeDirection, type SwipeDirection } from '../../input/swipeDetector';
 import { EFFECT_TIMINGS } from '../../ui/effects';
-import { invalidSwapRollback, moveTileView, popTileViews, swapTileViews } from '../animation/boardTweens';
+import {
+  invalidSwapRollback,
+  moveTileView,
+  playSpecialActivationEffects,
+  popTileViews,
+  swapTileViews,
+} from '../animation/boardTweens';
 import { playFeedback } from '../animation/effects';
 import { TileView } from '../objects/TileView';
 import {
@@ -40,6 +46,8 @@ const DEFAULT_STAGE = stages[0];
 interface CascadeAnimationResult {
   scoreGained: number;
   removedTiles: Array<{ kind: TileKind }>;
+  createdSpecials: Array<{ specialKind: SpecialTileKind }>;
+  activatedSpecials: Array<{ specialKind: SpecialTileKind }>;
   cascadeCount: number;
 }
 
@@ -78,6 +86,12 @@ type DebugWindow = Window & {
     stageStatus: string;
     movesRemaining: number;
     missionProgress: string;
+    specialTileCount: number;
+    createdSpecialCount: number;
+    activatedSpecialCount: number;
+    lastSpecialCreated: string;
+    lastSpecialActivated: string;
+    lastSpecialAffectedCount: number;
     firstClear: string;
     rewardPending: boolean;
   };
@@ -93,6 +107,9 @@ export class Match3Scene extends Phaser.Scene {
   private options: Match3SceneOptions;
   private stageSession: StageSession | null = null;
   private finishPublished = false;
+  private lastSpecialCreated = 'none';
+  private lastSpecialActivated = 'none';
+  private lastSpecialAffectedCount = 0;
 
   constructor(options: Match3SceneOptions = {}) {
     super('Match3Scene');
@@ -375,9 +392,12 @@ export class Match3Scene extends Phaser.Scene {
     }
 
     this.setInputState('SWAP_ATTEMPT');
-    const result = trySwap(this.session.board, { from, to });
+    const resolution = resolveMoveWithSpecials(this.session.board, { from, to }, {
+      seed: `${this.session.seed}:move:${this.stageSession.movesUsed + 1}`,
+      tileKinds: this.getStage().tileKinds,
+    });
 
-    if (!result.valid) {
+    if (!resolution.valid) {
       this.setInputState('INVALID_ROLLBACK');
       playFeedback('swap-invalid', this.options.vibrationEnabled);
       await invalidSwapRollback(this, fromView, toView, to, from, this.metrics);
@@ -393,18 +413,15 @@ export class Match3Scene extends Phaser.Scene {
     this.setInputState('SWAP_ANIMATING');
     playFeedback('swap-valid', this.options.vibrationEnabled);
     await swapTileViews(this, fromView, toView, to, from, this.metrics, EFFECT_TIMINGS.swapMs);
-    this.session.board = result.board;
+    this.session.board = resolution.swappedBoard;
     this.session.moveCount += 1;
-    this.session.lastMatches = result.matches;
+    this.session.lastMatches = resolution.cascade.steps[0]?.matches ?? [];
     this.session.selectedTile = null;
     this.syncSelection();
     this.setInputState('MATCH_CHECK');
 
-    const cascade = resolveCascade(this.session.board, {
-      seed: `${this.session.seed}:move:${this.session.moveCount}`,
-    });
-    const cascadeResult = await this.playCascade(cascade);
-    this.session.board = cascade.finalBoard;
+    const cascadeResult = await this.playCascade(resolution.cascade);
+    this.session.board = resolution.board;
     this.session.lastMatches = [];
     this.stageSession = applyMoveResult(
       this.stageSession,
@@ -435,6 +452,8 @@ export class Match3Scene extends Phaser.Scene {
       return {
         scoreGained: 0,
         removedTiles: [],
+        createdSpecials: [],
+        activatedSpecials: [],
         cascadeCount: 0,
       };
     }
@@ -442,6 +461,8 @@ export class Match3Scene extends Phaser.Scene {
     this.session.cascadeCount = cascade.steps.length;
     let scoreGained = 0;
     const removedTiles: Array<{ kind: TileKind }> = [];
+    const createdSpecials: Array<{ specialKind: SpecialTileKind }> = [];
+    const activatedSpecials: Array<{ specialKind: SpecialTileKind }> = [];
 
     for (let index = 0; index < cascade.steps.length; index += 1) {
       const step = cascade.steps[index];
@@ -449,6 +470,36 @@ export class Match3Scene extends Phaser.Scene {
       this.session.lastMatches = step.matches;
       this.setInputState('POPPING');
       playFeedback('pop', this.options.vibrationEnabled);
+      createdSpecials.push(
+        ...step.specialCreations.map((creation) => ({ specialKind: creation.specialKind })),
+      );
+      activatedSpecials.push(
+        ...step.specialActivations.map((activation) => ({ specialKind: activation.specialKind })),
+      );
+
+      for (const creation of step.specialCreations) {
+        const tile = getTileAt(step.boardBefore, creation.position);
+        const view = tile ? this.tileViews.get(tile.id) : undefined;
+        if (tile && view) {
+          view.updateTile(
+            {
+              ...tile,
+              kind: creation.kind,
+              specialKind: creation.specialKind,
+              position: { ...creation.position },
+            },
+            this.metrics,
+          );
+          this.lastSpecialCreated = creation.specialKind;
+        }
+      }
+
+      if (step.specialActivations.length > 0) {
+        const lastActivation = step.specialActivations[step.specialActivations.length - 1];
+        this.lastSpecialActivated = lastActivation.specialKind;
+        this.lastSpecialAffectedCount = lastActivation.affectedPositions.length;
+        await playSpecialActivationEffects(this, step.specialActivations, this.metrics);
+      }
 
       const popViews = step.removedPositions
         .map((position) => getTileAt(step.boardBefore, position))
@@ -468,8 +519,12 @@ export class Match3Scene extends Phaser.Scene {
       }
 
       const stepScore = scoreRemovedTiles(step.removedPositions.length, cascadeIndex);
-      scoreGained += stepScore;
-      this.session.score += stepScore;
+      const specialBonus = step.specialActivations.reduce(
+        (sum, activation) => sum + SPECIAL_SCORE_BONUS[activation.specialKind],
+        0,
+      );
+      scoreGained += stepScore + specialBonus;
+      this.session.score += stepScore + specialBonus;
       this.setInputState('DROPPING');
       const movements = deriveTileMovements(step.boardBefore, step.droppedBoard);
       await Promise.all(
@@ -519,6 +574,8 @@ export class Match3Scene extends Phaser.Scene {
     return {
       scoreGained,
       removedTiles,
+      createdSpecials,
+      activatedSpecials,
       cascadeCount: cascade.steps.length,
     };
   }
@@ -602,6 +659,17 @@ export class Match3Scene extends Phaser.Scene {
     const pointerDownTile = this.session.pointerDownTile
       ? `${this.session.pointerDownTile.row},${this.session.pointerDownTile.col}`
       : 'none';
+    const specialTileCount = this.session.board
+      .flat()
+      .filter((tile) => Boolean(tile?.specialKind)).length;
+    const createdSpecialCount = Object.values(this.stageSession.createdSpecialCounts).reduce(
+      (sum, value) => sum + (value ?? 0),
+      0,
+    );
+    const activatedSpecialCount = Object.values(this.stageSession.activatedSpecialCounts).reduce(
+      (sum, value) => sum + (value ?? 0),
+      0,
+    );
 
     (window as DebugWindow).__haimpangDebug = {
       inputState: this.session.inputState,
@@ -623,6 +691,12 @@ export class Match3Scene extends Phaser.Scene {
       missionProgress: this.stageSession.missionProgress
         .map((mission) => `${mission.current}/${mission.required}`)
         .join(','),
+      specialTileCount,
+      createdSpecialCount,
+      activatedSpecialCount,
+      lastSpecialCreated: this.lastSpecialCreated,
+      lastSpecialActivated: this.lastSpecialActivated,
+      lastSpecialAffectedCount: this.lastSpecialAffectedCount,
       firstClear: 'react-owned',
       rewardPending: this.stageSession.status === 'won',
     };
