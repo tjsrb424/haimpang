@@ -41,7 +41,7 @@ export function AppFrame({
         </div>
       </header>
 
-      <main className="screen-surface">{children}</main>
+      <main className={`screen-surface route-${activeRoute}`}>{children}</main>
 
       <nav className="bottom-tabs" aria-label="하단 메뉴">
         {routes.map((route) => (

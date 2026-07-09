@@ -11,4 +11,6 @@ Thumbs.db
 artifacts/
 vite-dev.log
 vite-dev.err
+vite-dev-*.log
+vite-dev-*.err
 *.tsbuildinfo

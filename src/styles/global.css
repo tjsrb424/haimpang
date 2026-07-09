@@ -177,6 +177,10 @@ textarea {
   padding: var(--space-lg) var(--space-lg) var(--space-xl);
 }
 
+.screen-surface.route-game {
+  padding: var(--space-md) 10px 12px;
+}
+
 .page-stack {
   display: flex;
   flex-direction: column;
@@ -184,7 +188,7 @@ textarea {
 }
 
 .game-page {
-  gap: var(--space-sm);
+  gap: 6px;
 }
 
 .section-header {
@@ -364,7 +368,7 @@ textarea {
 }
 
 .game-page .mission-card {
-  padding: var(--space-md) var(--space-lg);
+  padding: 10px var(--space-lg);
 }
 
 .mission-card h2 {
@@ -396,11 +400,11 @@ textarea {
 }
 
 .game-page .mission-goal {
-  padding-block: 10px;
+  padding-block: 8px;
 }
 
 .board-shell {
-  padding: 6px;
+  padding: 4px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 232, 238, 0.5)),
     var(--color-surface-elevated);
@@ -411,17 +415,17 @@ textarea {
   justify-content: space-between;
   align-items: center;
   gap: var(--space-md);
-  padding: 4px var(--space-sm) 6px;
+  padding: 2px var(--space-sm) 4px;
   color: var(--color-text-secondary);
   font-size: var(--font-caption);
   font-weight: 900;
 }
 
 .game-host {
-  width: min(92vw, 430px);
+  width: 100%;
   max-width: 100%;
-  height: min(39vh, 390px);
-  min-height: 304px;
+  height: min(42vh, 430px);
+  min-height: 356px;
   margin: 0 auto;
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -707,7 +711,7 @@ textarea {
   }
 
   .game-host {
-    min-height: 292px;
+    min-height: 340px;
   }
 }
 

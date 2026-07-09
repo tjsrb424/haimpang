@@ -1,13 +1,20 @@
 import Phaser from 'phaser';
+import { createInitialBoard } from '../../core/board';
 import { BOARD_HEIGHT, BOARD_WIDTH } from '../../core/board';
-import { getTileStyle } from '../../ui/tileFactory';
+import type { BoardGrid } from '../../core/types';
+import { getTileStyleByKind } from '../../ui/tileFactory';
+
+const PREVIEW_SEED = 'haimpang-sprint2-preview';
 
 export class Match3Scene extends Phaser.Scene {
+  private previewBoard: BoardGrid | null = null;
+
   constructor() {
     super('Match3Scene');
   }
 
   create() {
+    this.previewBoard = createInitialBoard({ seed: PREVIEW_SEED });
     this.drawBoard();
     this.scale.on('resize', this.drawBoard, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -20,35 +27,16 @@ export class Match3Scene extends Phaser.Scene {
 
     const width = this.scale.width;
     const height = this.scale.height;
-    const boardSize = Math.floor(Math.min(width * 0.9, height * 0.78, 402));
+    const boardSize = Math.floor(Math.min(width * 0.96, height * 0.96, 402));
     const gap = Math.max(5, Math.floor(boardSize * 0.014));
     const tileSize = Math.floor((boardSize - gap * (BOARD_WIDTH + 1)) / BOARD_WIDTH);
     const actualBoardSize = tileSize * BOARD_WIDTH + gap * (BOARD_WIDTH + 1);
     const originX = Math.round((width - actualBoardSize) / 2);
-    const originY = Math.round((height - actualBoardSize) / 2 + 18);
+    const originY = Math.round((height - actualBoardSize) / 2);
 
     this.drawBackground(width, height);
     this.drawBoardFrame(originX, originY, actualBoardSize);
     this.drawTiles(originX, originY, tileSize, gap);
-
-    this.add
-      .text(width / 2, Math.max(16, originY - 34), 'HAIMPANG preview board', {
-        fontFamily: 'Arial, sans-serif',
-        fontSize: '14px',
-        color: '#7b5965',
-        fontStyle: '700',
-      })
-      .setOrigin(0.5)
-      .setAlpha(0.78);
-
-    this.add
-      .text(width / 2, Math.min(height - 16, originY + actualBoardSize + 28), 'Sprint 2 core engine ready zone', {
-        fontFamily: 'Arial, sans-serif',
-        fontSize: '12px',
-        color: '#9a7f8b',
-      })
-      .setOrigin(0.5)
-      .setAlpha(0.86);
   }
 
   private drawBackground(width: number, height: number) {
@@ -85,7 +73,8 @@ export class Match3Scene extends Phaser.Scene {
   private drawTiles(originX: number, originY: number, tileSize: number, gap: number) {
     for (let row = 0; row < BOARD_HEIGHT; row += 1) {
       for (let col = 0; col < BOARD_WIDTH; col += 1) {
-        const style = getTileStyle(row * BOARD_WIDTH + col + (row % 2));
+        const kind = this.previewBoard?.[row]?.[col]?.kind ?? 'heart';
+        const style = getTileStyleByKind(kind);
         const x = originX + gap + col * (tileSize + gap);
         const y = originY + gap + row * (tileSize + gap);
         const tile = this.add.graphics();
