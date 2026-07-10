@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="딸기 젤리">
+  <defs>
+    <linearGradient id="berry" x1="0" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#ff8ca1"/>
+      <stop offset="0.56" stop-color="#f45f78"/>
+      <stop offset="1" stop-color="#c83b59"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#b9e687"/>
+      <stop offset="1" stop-color="#5ea75f"/>
+    </linearGradient>
+  </defs>
+  <path d="M64 30C44 18 23 32 24 53c1 24 22 48 40 60 18-12 39-36 40-60 1-21-20-35-40-23Z" fill="#9f2e4d" opacity=".2" transform="translate(0 4)"/>
+  <path d="M64 27C44 17 25 31 26 51c1 23 21 45 38 57 17-12 37-34 38-57 1-20-18-34-38-24Z" fill="url(#berry)" stroke="#b93555" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M43 31c6-9 13-14 21-15 8 1 15 6 21 15l-8 8-13-5-13 5-8-8Z" fill="url(#leaf)" stroke="#4d8d57" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M42 45c6-10 17-14 27-10" fill="none" stroke="#ffdce3" stroke-width="7" stroke-linecap="round" opacity=".72"/>
+  <g fill="#ffe8b0" stroke="#d8a55d" stroke-width="1.5">
+    <ellipse cx="44" cy="61" rx="2.7" ry="4"/><ellipse cx="63" cy="53" rx="2.7" ry="4"/>
+    <ellipse cx="82" cy="62" rx="2.7" ry="4"/><ellipse cx="53" cy="78" rx="2.7" ry="4"/>
+    <ellipse cx="73" cy="82" rx="2.7" ry="4"/><ellipse cx="63" cy="96" rx="2.7" ry="4"/>
+  </g>
+</svg>

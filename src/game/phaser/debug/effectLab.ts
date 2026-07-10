@@ -3,6 +3,7 @@ export const EFFECT_LAB_EVENT = 'haimpang:effect-lab';
 export const EFFECT_LAB_CUES = [
   'combo-2',
   'combo-5',
+  'combo-8',
   'combo-10-haimpang',
   'normal-pop',
   'special-pop',

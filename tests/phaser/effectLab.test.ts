@@ -12,6 +12,7 @@ describe('effectLab', () => {
     expect(EFFECT_LAB_CUES).toEqual([
       'combo-2',
       'combo-5',
+      'combo-8',
       'combo-10-haimpang',
       'normal-pop',
       'special-pop',

@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import type { BoardTile, SpecialTileKind, TileKind } from '../../core/types';
 import type { BoardLayoutMetrics } from '../../input/pointerToTile';
-import { getTileStyleByKind } from '../../ui/tileFactory';
+import { GAME_DEPTH } from '../../presentation/designTokens';
+import { getTilePresentation, type TilePresentation } from '../../presentation/tilePresentation';
 import { playPopBurstEffect } from '../animation/popEffects';
 
 export class TileView {
@@ -13,8 +14,11 @@ export class TileView {
   container: Phaser.GameObjects.Container;
 
   private scene: Phaser.Scene;
-  private graphics: Phaser.GameObjects.Graphics;
-  private label: Phaser.GameObjects.Text;
+  private berryLayer: Phaser.GameObjects.Container;
+  private shadow: Phaser.GameObjects.Graphics;
+  private fallback: Phaser.GameObjects.Graphics;
+  private sprite: Phaser.GameObjects.Image;
+  private specialOverlay: Phaser.GameObjects.Graphics;
   private selection: Phaser.GameObjects.Graphics;
   private selectedTween: Phaser.Tweens.Tween | null = null;
   private currentTileSize = 40;
@@ -31,14 +35,24 @@ export class TileView {
     this.specialKind = tile.specialKind;
     this.row = tile.position.row;
     this.col = tile.position.col;
-    this.graphics = scene.add.graphics();
     this.selection = scene.add.graphics();
-    this.label = scene.add.text(0, 0, '', {
-      fontFamily: 'Arial, sans-serif',
-      fontStyle: '900',
-    });
-    this.container = scene.add.container(0, 0, [this.selection, this.graphics, this.label]);
-    this.container.setDepth(3);
+    this.shadow = scene.add.graphics();
+    this.fallback = scene.add.graphics();
+
+    const presentation = getTilePresentation(tile.kind);
+    const textureKey = scene.textures.exists(presentation.textureKey)
+      ? presentation.textureKey
+      : '__WHITE';
+    this.sprite = scene.add.image(0, 0, textureKey);
+    this.specialOverlay = scene.add.graphics();
+    this.berryLayer = scene.add.container(0, 0, [
+      this.shadow,
+      this.fallback,
+      this.sprite,
+      this.specialOverlay,
+    ]);
+    this.container = scene.add.container(0, 0, [this.selection, this.berryLayer]);
+    this.container.setDepth(GAME_DEPTH.tile);
     this.redraw(metrics);
     this.setScenePosition(spawnRow, tile.position.col, metrics);
   }
@@ -65,12 +79,16 @@ export class TileView {
       this.selectedTween = null;
     }
 
-    this.container.setScale(1);
+    this.selection.setScale(1).setAlpha(1);
+    this.berryLayer.setScale(1);
+    this.container.setDepth(selected ? GAME_DEPTH.selected : GAME_DEPTH.tile);
+
     if (selected) {
       this.selectedTween = this.scene.tweens.add({
-        targets: this.selection,
-        alpha: { from: 0.45, to: 0.9 },
-        duration: 760,
+        targets: [this.selection, this.berryLayer],
+        scale: { from: 1, to: 1.045 },
+        duration: 720,
+        ease: 'Sine.easeInOut',
         yoyo: true,
         repeat: -1,
       });
@@ -78,147 +96,199 @@ export class TileView {
   }
 
   redraw(metrics: BoardLayoutMetrics): void {
-    const style = getTileStyleByKind(this.kind);
-    const radius = Math.max(10, metrics.tileSize * 0.25);
+    const presentation = getTilePresentation(this.kind);
+    const size = metrics.tileSize;
+    const center = size / 2;
 
-    this.currentTileSize = metrics.tileSize;
-    this.graphics.clear();
+    this.currentTileSize = size;
+    this.shadow.clear();
+    this.fallback.clear();
     this.selection.clear();
+    this.specialOverlay.clear();
 
-    this.selection.lineStyle(3, 0xffffff, 0.86);
-    this.selection.strokeRoundedRect(
-      -3,
-      -3,
-      metrics.tileSize + 6,
-      metrics.tileSize + 6,
-      radius + 3,
-    );
-    this.selection.lineStyle(2, style.stroke, 0.78);
-    this.selection.strokeRoundedRect(
-      -6,
-      -6,
-      metrics.tileSize + 12,
-      metrics.tileSize + 12,
-      radius + 6,
-    );
-    this.selection.setVisible(false);
+    this.drawSelection(size, presentation);
+    this.shadow.fillStyle(presentation.darkColor, 0.18);
+    this.shadow.fillEllipse(center + 1, center + size * 0.14, size * 0.76, size * 0.34);
 
-    this.graphics.fillStyle(style.shadow, 0.15);
-    this.graphics.fillRoundedRect(2, 4, metrics.tileSize, metrics.tileSize, radius);
-    this.graphics.fillStyle(style.fill, 1);
-
-    if (style.shape === 'circle') {
-      this.graphics.fillCircle(metrics.tileSize / 2, metrics.tileSize / 2, metrics.tileSize * 0.46);
-    } else if (style.shape === 'diamond') {
-      this.graphics.beginPath();
-      this.graphics.moveTo(metrics.tileSize / 2, 2);
-      this.graphics.lineTo(metrics.tileSize - 2, metrics.tileSize / 2);
-      this.graphics.lineTo(metrics.tileSize / 2, metrics.tileSize - 2);
-      this.graphics.lineTo(2, metrics.tileSize / 2);
-      this.graphics.closePath();
-      this.graphics.fillPath();
-    } else if (style.shape === 'pill') {
-      this.graphics.fillRoundedRect(
-        2,
-        metrics.tileSize * 0.12,
-        metrics.tileSize - 4,
-        metrics.tileSize * 0.76,
-        metrics.tileSize * 0.38,
-      );
+    const hasTexture = this.scene.textures.exists(presentation.textureKey);
+    this.sprite.setVisible(hasTexture);
+    this.fallback.setVisible(!hasTexture);
+    if (hasTexture) {
+      this.sprite.setTexture(presentation.textureKey);
+      this.sprite.setPosition(center, center);
+      this.sprite.setDisplaySize(size * 1.08, size * 1.08);
     } else {
-      this.graphics.fillRoundedRect(0, 0, metrics.tileSize, metrics.tileSize, radius);
+      this.drawFallbackBerry(size, presentation);
     }
 
-    this.graphics.lineStyle(2, style.stroke, 0.52);
-    this.graphics.strokeRoundedRect(1, 1, metrics.tileSize - 2, metrics.tileSize - 2, radius);
-    this.graphics.fillStyle(0xffffff, 0.24);
-    this.graphics.fillCircle(
-      metrics.tileSize * 0.32,
-      metrics.tileSize * 0.26,
-      Math.max(2, metrics.tileSize * 0.09),
-    );
-    this.drawSpecialOverlay(metrics);
-
-    this.label.setText(style.label);
-    this.label.setStyle({
-      fontSize: `${Math.max(12, metrics.tileSize * 0.3)}px`,
-      color: style.text,
-    });
-    this.label.setOrigin(0.5);
-    this.label.setPosition(metrics.tileSize / 2, metrics.tileSize / 2);
-    this.container.setSize(metrics.tileSize, metrics.tileSize);
+    this.drawSpecialOverlay(size);
+    this.container.setSize(size, size);
   }
 
-  private drawSpecialOverlay(metrics: BoardLayoutMetrics): void {
+  private drawSelection(size: number, presentation: TilePresentation): void {
+    const center = size / 2;
+
+    this.selection.fillStyle(0xfff2d9, 0.68);
+    this.selection.fillCircle(center, center, size * 0.59);
+    this.selection.lineStyle(2.5, 0xffffff, 0.94);
+    this.selection.strokeCircle(center, center, size * 0.55);
+    this.selection.lineStyle(2, presentation.highlightColor, 0.8);
+    this.selection.strokeCircle(center, center, size * 0.62);
+
+    for (const [x, y] of [
+      [0.16, 0.18],
+      [0.84, 0.78],
+    ] as const) {
+      const sparkleSize = Math.max(2, size * 0.08);
+      this.selection.lineStyle(2, 0xffffff, 0.9);
+      this.selection.lineBetween(
+        size * x - sparkleSize,
+        size * y,
+        size * x + sparkleSize,
+        size * y,
+      );
+      this.selection.lineBetween(
+        size * x,
+        size * y - sparkleSize,
+        size * x,
+        size * y + sparkleSize,
+      );
+    }
+
+    this.selection.setVisible(false);
+  }
+
+  private drawFallbackBerry(size: number, presentation: TilePresentation): void {
+    const center = size / 2;
+    const radius = size * 0.36;
+
+    this.fallback.fillStyle(presentation.primaryColor, 1);
+    this.fallback.lineStyle(2, presentation.darkColor, 0.86);
+
+    if (presentation.silhouette === 'heart') {
+      this.fallback.beginPath();
+      this.fallback.moveTo(center, size * 0.86);
+      this.fallback.lineTo(size * 0.18, size * 0.42);
+      this.fallback.arc(size * 0.35, size * 0.34, size * 0.18, Math.PI, 0);
+      this.fallback.arc(size * 0.65, size * 0.34, size * 0.18, Math.PI, 0);
+      this.fallback.closePath();
+      this.fallback.fillPath();
+      this.fallback.strokePath();
+    } else if (presentation.silhouette === 'double-round') {
+      this.fallback.fillCircle(size * 0.35, size * 0.58, radius * 0.82);
+      this.fallback.fillCircle(size * 0.67, size * 0.58, radius * 0.82);
+      this.fallback.strokeCircle(size * 0.35, size * 0.58, radius * 0.82);
+      this.fallback.strokeCircle(size * 0.67, size * 0.58, radius * 0.82);
+    } else {
+      for (const [x, y] of [
+        [0.36, 0.37],
+        [0.64, 0.37],
+        [0.28, 0.61],
+        [0.5, 0.58],
+        [0.72, 0.61],
+        [0.42, 0.79],
+        [0.61, 0.79],
+      ] as const) {
+        this.fallback.fillCircle(size * x, size * y, radius * 0.43);
+      }
+    }
+
+    this.fallback.fillStyle(0xffffff, 0.42);
+    this.fallback.fillEllipse(size * 0.38, size * 0.36, size * 0.2, size * 0.1);
+  }
+
+  private drawSpecialOverlay(size: number): void {
     if (!this.specialKind) {
       return;
     }
 
-    const size = metrics.tileSize;
     const center = size / 2;
+    const cream = 0xfff6df;
 
     if (this.specialKind === 'line_horizontal') {
-      this.graphics.fillStyle(0xffffff, 0.78);
-      this.graphics.fillRoundedRect(
-        size * 0.14,
+      this.specialOverlay.fillStyle(cream, 0.9);
+      this.specialOverlay.fillRoundedRect(
+        size * 0.08,
         center - size * 0.09,
-        size * 0.72,
+        size * 0.84,
         size * 0.18,
         size * 0.09,
       );
-      this.graphics.lineStyle(2, 0xff7197, 0.74);
-      this.graphics.lineBetween(size * 0.2, center, size * 0.8, center);
+      this.specialOverlay.lineStyle(2, 0xffffff, 0.96);
+      this.specialOverlay.lineBetween(size * 0.13, center, size * 0.87, center);
+      this.drawDirectionalSparkles(size, 'horizontal');
       return;
     }
 
     if (this.specialKind === 'line_vertical') {
-      this.graphics.fillStyle(0xffffff, 0.78);
-      this.graphics.fillRoundedRect(
+      this.specialOverlay.fillStyle(cream, 0.9);
+      this.specialOverlay.fillRoundedRect(
         center - size * 0.09,
-        size * 0.14,
+        size * 0.08,
         size * 0.18,
-        size * 0.72,
+        size * 0.84,
         size * 0.09,
       );
-      this.graphics.lineStyle(2, 0xff7197, 0.74);
-      this.graphics.lineBetween(center, size * 0.2, center, size * 0.8);
+      this.specialOverlay.lineStyle(2, 0xffffff, 0.96);
+      this.specialOverlay.lineBetween(center, size * 0.13, center, size * 0.87);
+      this.drawDirectionalSparkles(size, 'vertical');
       return;
     }
 
     if (this.specialKind === 'bomb') {
-      this.graphics.lineStyle(3, 0xffffff, 0.85);
-      this.graphics.strokeCircle(center, center, size * 0.28);
-      this.graphics.lineStyle(2, 0xffd166, 0.9);
-      this.graphics.strokeCircle(center, center, size * 0.2);
+      this.specialOverlay.lineStyle(3, 0xfff7df, 0.98);
+      this.specialOverlay.strokeCircle(center, center, size * 0.38);
+      this.specialOverlay.lineStyle(2, 0xf4bd55, 0.92);
+      this.specialOverlay.strokeCircle(center, center, size * 0.3);
       for (const [x, y] of [
-        [0.28, 0.24],
-        [0.74, 0.28],
-        [0.72, 0.72],
-        [0.26, 0.7],
+        [0.17, 0.24],
+        [0.81, 0.2],
+        [0.84, 0.76],
+        [0.18, 0.78],
       ] as const) {
-        this.graphics.fillStyle(0xffffff, 0.9);
-        this.graphics.fillCircle(size * x, size * y, Math.max(1.5, size * 0.035));
+        this.specialOverlay.fillStyle(0xfff1b7, 0.96);
+        this.specialOverlay.fillCircle(size * x, size * y, Math.max(2, size * 0.055));
       }
       return;
     }
 
-    this.graphics.lineStyle(3, 0xffffff, 0.88);
-    this.graphics.strokeCircle(center, center, size * 0.32);
-    for (const [color, offset] of [
-      [0xff7197, -0.12],
-      [0xffd166, 0],
-      [0x65c7b4, 0.12],
+    this.specialOverlay.fillStyle(0xffffff, 0.82);
+    this.specialOverlay.fillCircle(center, center, size * 0.24);
+    for (const [color, radius, start] of [
+      [0xf184a5, 0.34, 0.08],
+      [0xf2c35d, 0.3, 0.58],
+      [0xa695e8, 0.26, 1.08],
+      [0x78cbb5, 0.22, 1.58],
     ] as const) {
-      this.graphics.lineStyle(2, color, 0.9);
-      this.graphics.beginPath();
-      this.graphics.arc(
+      this.specialOverlay.lineStyle(3, color, 0.95);
+      this.specialOverlay.beginPath();
+      this.specialOverlay.arc(
         center,
-        center + size * offset,
-        size * 0.22,
-        Math.PI * 0.08,
-        Math.PI * 0.92,
+        center,
+        size * radius,
+        Math.PI * start,
+        Math.PI * (start + 0.68),
       );
-      this.graphics.strokePath();
+      this.specialOverlay.strokePath();
+    }
+  }
+
+  private drawDirectionalSparkles(size: number, direction: 'horizontal' | 'vertical'): void {
+    const points =
+      direction === 'horizontal'
+        ? [
+            [0.1, 0.5],
+            [0.9, 0.5],
+          ]
+        : [
+            [0.5, 0.1],
+            [0.5, 0.9],
+          ];
+    for (const [x, y] of points) {
+      const radius = Math.max(2, size * 0.06);
+      this.specialOverlay.lineStyle(2, 0xffffff, 1);
+      this.specialOverlay.lineBetween(size * x - radius, size * y, size * x + radius, size * y);
+      this.specialOverlay.lineBetween(size * x, size * y - radius, size * x, size * y + radius);
     }
   }
 
@@ -243,6 +313,8 @@ export class TileView {
       this.selectedTween.stop();
       this.selectedTween = null;
     }
+    this.selection.setVisible(false);
+    this.berryLayer.setScale(1);
 
     const shrinkDuration = this.specialKind ? 150 : 130;
     const center = this.currentTileSize / 2;
@@ -255,12 +327,12 @@ export class TileView {
     });
 
     const tileTween = new Promise<void>((resolve) => {
-      this.container.setDepth(this.specialKind ? 9 : 8);
-      this.container.setScale(1);
-      this.container.setAlpha(1);
+      this.container.setDepth(this.specialKind ? GAME_DEPTH.pop + 1 : GAME_DEPTH.pop);
+      this.container.setScale(1).setAlpha(1);
       this.scene.tweens.add({
         targets: this.container,
-        scale: this.specialKind ? 1.12 : 1.08,
+        scaleX: this.specialKind ? 1.14 : 1.1,
+        scaleY: this.specialKind ? 0.94 : 0.96,
         duration: 70,
         ease: 'Sine.easeOut',
         onComplete: () => {

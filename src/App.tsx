@@ -34,6 +34,7 @@ export function App() {
   const [gameRunId, setGameRunId] = useState(0);
   const [stageResult, setStageResult] = useState<StageFinishResult | null>(null);
   const currentStage = stages.find((stage) => stage.id === currentStageId) ?? stages[0];
+  const immersiveGame = activeRoute === 'game' && gameView === 'play';
 
   const todayLabel = useMemo(
     () =>
@@ -175,6 +176,7 @@ export function App() {
       save={save}
       todayLabel={todayLabel}
       onRouteChange={handleRouteChange}
+      mode={immersiveGame ? 'immersive' : 'standard'}
     >
       {activeRoute === 'home' && (
         <HomePage

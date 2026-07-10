@@ -55,5 +55,5 @@ export function GameHost({
     };
   }, [effectLabEnabled, stage, vibrationEnabled]);
 
-  return <div ref={hostRef} className="game-host" aria-label="HAIMPANG match-3 board" />;
+  return <div ref={hostRef} className="game-host" aria-label="하임팡 베리 매치 보드" />;
 }

@@ -3,6 +3,7 @@ import type { AppRouteKey } from '../app/routes';
 import type { HaimpangSave } from '../save/saveManager';
 import { SAVE_VERSION } from '../save/saveManager';
 import { requestEffectLabCue, type EffectLabCue } from '../game/phaser/debug/effectLab';
+import { DesignLab } from '../components/DesignLab';
 
 interface DebugPanelProps {
   activeRoute: AppRouteKey;
@@ -40,6 +41,10 @@ interface HaimpangDebugSnapshot {
     to: { row: number; col: number };
   }>;
   boardKinds?: string[][];
+  displayObjectCount?: number;
+  activeTweenCount?: number;
+  averageFps?: number;
+  effectObjectCount?: number;
 }
 
 interface DebugMetrics {
@@ -85,6 +90,7 @@ export function DebugPanel({ activeRoute, save }: DebugPanelProps) {
   const [metrics, setMetrics] = useState<DebugMetrics>(() => readMetrics());
   const [lastCue, setLastCue] = useState('none');
   const [isPreviewing, setIsPreviewing] = useState(false);
+  const [designLabOpen, setDesignLabOpen] = useState(false);
   const previewTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -118,39 +124,57 @@ export function DebugPanel({ activeRoute, save }: DebugPanelProps) {
       previewTimerRef.current = window.setTimeout(() => {
         setIsPreviewing(false);
         previewTimerRef.current = null;
-      }, 760);
+      }, 1800);
     }
   };
 
   const effectLabReady = activeRoute === 'game' && metrics.session !== null;
   const nextMove = metrics.session?.possibleMoves?.[0];
+  const stageFinished =
+    metrics.session?.stageStatus !== undefined && metrics.session.stageStatus !== 'playing';
+  const panelClassName = [
+    'debug-panel',
+    isPreviewing ? 'previewing' : '',
+    stageFinished ? 'stage-finished' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
-    <aside
-      className={isPreviewing ? 'debug-panel previewing' : 'debug-panel'}
-      aria-label="Debug panel"
-    >
+    <aside className={panelClassName} aria-label="Debug panel">
       <strong>Debug</strong>
+      {import.meta.env.DEV && (
+        <button
+          type="button"
+          className="debug-design-lab-button"
+          onClick={() => setDesignLabOpen(true)}
+        >
+          디자인 랩 열기
+        </button>
+      )}
       <div className="debug-effect-lab" role="group" aria-label="Combo effect QA harness">
         <strong>Effect Lab</strong>
         <button type="button" disabled={!effectLabReady} onClick={() => playCue('combo-2')}>
-          Play 2 Combo
+          2콤보 재생
         </button>
         <button type="button" disabled={!effectLabReady} onClick={() => playCue('combo-5')}>
-          Play 5 Combo
+          5콤보 재생
+        </button>
+        <button type="button" disabled={!effectLabReady} onClick={() => playCue('combo-8')}>
+          8콤보 재생
         </button>
         <button
           type="button"
           disabled={!effectLabReady}
           onClick={() => playCue('combo-10-haimpang')}
         >
-          Play 10 Combo HAIMPANG
+          10콤보 하임팡 재생
         </button>
         <button type="button" disabled={!effectLabReady} onClick={() => playCue('normal-pop')}>
-          Play Normal Pop Burst
+          일반 베리 팝
         </button>
         <button type="button" disabled={!effectLabReady} onClick={() => playCue('special-pop')}>
-          Play Special Pop Burst
+          특수 베리 팝
         </button>
         <span aria-live="polite">last-cue: {lastCue}</span>
       </div>
@@ -188,6 +212,10 @@ export function DebugPanel({ activeRoute, save }: DebugPanelProps) {
               <span>last-affected: {metrics.session.lastSpecialAffectedCount ?? 0}</span>
               <span>last-combo: {metrics.session.lastComboCount ?? 0}</span>
               <span>combo-effect: {metrics.session.lastComboEffect ?? 'none'}</span>
+              <span>objects: {metrics.session.displayObjectCount ?? 0}</span>
+              <span>tweens: {metrics.session.activeTweenCount ?? 0}</span>
+              <span>fps: {metrics.session.averageFps ?? 0}</span>
+              <span>effect-objects: {metrics.session.effectObjectCount ?? 0}</span>
               <span>first-clear: {metrics.session.firstClear ?? 'n/a'}</span>
               <span>reward-pending: {String(metrics.session.rewardPending ?? false)}</span>
               <span>
@@ -209,6 +237,17 @@ export function DebugPanel({ activeRoute, save }: DebugPanelProps) {
           )}
         </div>
       </details>
+      {import.meta.env.DEV && (
+        <DesignLab
+          open={designLabOpen}
+          effectLabReady={effectLabReady}
+          onClose={() => setDesignLabOpen(false)}
+          onPlayCue={(cue) => {
+            playCue(cue);
+            setDesignLabOpen(false);
+          }}
+        />
+      )}
     </aside>
   );
 }

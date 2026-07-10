@@ -9,6 +9,7 @@ interface AppFrameProps {
   todayLabel: string;
   children: ReactNode;
   onRouteChange: (route: AppRouteKey) => void;
+  mode?: 'standard' | 'immersive';
 }
 
 export function AppFrame({
@@ -18,45 +19,56 @@ export function AppFrame({
   todayLabel,
   children,
   onRouteChange,
+  mode = 'standard',
 }: AppFrameProps) {
+  const immersive = mode === 'immersive';
+
   return (
-    <div className="app-shell">
-      <header className="top-bar">
-        <div className="brand-row">
-          <div className="brand-lockup" aria-label="HAIMPANG">
-            <span className="brand-sigil" aria-hidden="true">
-              HP
-            </span>
-            <div>
-              <p className="eyebrow">효임을 위한 선물 앱</p>
-              <h1>HAIMPANG</h1>
+    <div className={immersive ? 'app-shell immersive' : 'app-shell standard'}>
+      {!immersive && (
+        <header className="top-bar">
+          <div className="brand-row">
+            <div className="brand-lockup" aria-label="HAIMPANG">
+              <span className="brand-sigil" aria-hidden="true">
+                HP
+              </span>
+              <div>
+                <p className="eyebrow">효임을 위한 선물 앱</p>
+                <h1>HAIMPANG</h1>
+              </div>
             </div>
+            <span className="today-chip">{todayLabel}</span>
           </div>
-          <span className="today-chip">{todayLabel}</span>
-        </div>
 
-        <div className="status-row" aria-label="보유 재화">
-          <span className="status-pill star">별 {save.stars}</span>
-          <span className="status-pill heart">하트 {save.hearts}</span>
-        </div>
-      </header>
+          <div className="status-row" aria-label="보유 재화">
+            <span className="status-pill star">별 {save.stars}</span>
+            <span className="status-pill heart">하트 {save.hearts}</span>
+          </div>
+        </header>
+      )}
 
-      <main className={`screen-surface route-${activeRoute}`}>{children}</main>
+      <main
+        className={`screen-surface route-${activeRoute}${immersive ? ' immersive-surface' : ''}`}
+      >
+        {children}
+      </main>
 
-      <nav className="bottom-tabs" aria-label="하단 메뉴">
-        {routes.map((route) => (
-          <button
-            type="button"
-            key={route.key}
-            className={route.key === activeRoute ? 'tab-button active' : 'tab-button'}
-            onClick={() => onRouteChange(route.key)}
-            aria-current={route.key === activeRoute ? 'page' : undefined}
-          >
-            <span className={`tab-glyph ${route.key}`} aria-hidden="true" />
-            <span>{route.shortLabel}</span>
-          </button>
-        ))}
-      </nav>
+      {!immersive && (
+        <nav className="bottom-tabs" aria-label="하단 메뉴">
+          {routes.map((route) => (
+            <button
+              type="button"
+              key={route.key}
+              className={route.key === activeRoute ? 'tab-button active' : 'tab-button'}
+              onClick={() => onRouteChange(route.key)}
+              aria-current={route.key === activeRoute ? 'page' : undefined}
+            >
+              <span className={`tab-glyph ${route.key}`} aria-hidden="true" />
+              <span>{route.shortLabel}</span>
+            </button>
+          ))}
+        </nav>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getComboEffectDuration,
   getComboEffectTier,
+  getComboDisplayText,
   getEffectAnchorFromMatchedPositions,
   shouldShowComboText,
   shouldShowHaimpangBurst,
@@ -21,6 +22,8 @@ describe('comboEffects', () => {
   it('shows combo text from the second cascade step', () => {
     expect(shouldShowComboText(1)).toBe(false);
     expect(shouldShowComboText(2)).toBe(true);
+    expect(getComboDisplayText(2)).toBe('2콤보');
+    expect(getComboDisplayText(10)).toBe('10콤보');
   });
 
   it('uses stronger tiers as the cascade count grows', () => {

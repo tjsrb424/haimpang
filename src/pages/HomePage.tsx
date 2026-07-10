@@ -4,6 +4,8 @@ import { stages } from '../data/stages';
 import { getInstallGuideState } from '../pwa/installPrompt';
 import { getCouponCounts, type HaimpangSave } from '../save/saveManager';
 import { getRecommendedStage, getMissionSummary } from '../stage/stageSelect';
+import { getStageDisplayName } from '../game/presentation/stagePresentation';
+import { getMemoryPresentation } from '../game/presentation/memoryPresentation';
 
 interface HomePageProps {
   save: HaimpangSave;
@@ -27,6 +29,7 @@ function categoryLabel(category: string): string {
 export function HomePage({ save, onStartGame, onOpenStageSelect, onOpenWallet }: HomePageProps) {
   const nextStage = getRecommendedStage(stages, save);
   const recentLog = save.memoryLogs[0];
+  const recentMemory = recentLog ? getMemoryPresentation(recentLog) : null;
   const couponCounts = getCouponCounts(save);
   const firstAvailableCoupon = save.couponWallet.find((entry) => entry.status === 'available');
   const availableCoupon = firstAvailableCoupon
@@ -68,7 +71,9 @@ export function HomePage({ save, onStartGame, onOpenStageSelect, onOpenWallet }:
       <article className="continue-card">
         <div>
           <p className="eyebrow">다음 추천 스테이지</p>
-          <h3>Stage {nextStage.id}. {nextStage.title}</h3>
+          <h3>
+            스테이지 {nextStage.id}. {getStageDisplayName(nextStage.id)}
+          </h3>
           <p>{getMissionSummary(nextStage)}</p>
         </div>
         <button type="button" className="primary-button" onClick={onStartGame}>
@@ -91,8 +96,8 @@ export function HomePage({ save, onStartGame, onOpenStageSelect, onOpenWallet }:
         </article>
         <article className="info-card">
           <p className="eyebrow">최근 추억</p>
-          <h3>{recentLog?.title ?? '첫 기록 준비 중'}</h3>
-          <p>{recentLog?.description ?? '게임과 쿠폰 기록이 여기에 차곡차곡 쌓여요.'}</p>
+          <h3>{recentMemory?.title ?? '첫 기록 준비 중'}</h3>
+          <p>{recentMemory?.description ?? '게임과 쿠폰 기록이 여기에 차곡차곡 쌓여요.'}</p>
         </article>
       </div>
 

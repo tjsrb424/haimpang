@@ -2,6 +2,7 @@ import { SectionHeader } from '../components/SectionHeader';
 import { stages } from '../data/stages';
 import type { HaimpangSave } from '../save/saveManager';
 import { buildStageSelectItems, canStartStage } from '../stage/stageSelect';
+import { getStageDisplayName } from '../game/presentation/stagePresentation';
 
 interface StageSelectPageProps {
   save: HaimpangSave;
@@ -43,8 +44,8 @@ export function StageSelectPage({ save, onStartStage, onHome }: StageSelectPageP
               {item.recommended && <span className="stage-state recommended">추천</span>}
             </div>
             <div>
-              <p className="eyebrow">Stage {item.stage.id}</p>
-              <h3>{item.stage.title}</h3>
+              <p className="eyebrow">스테이지 {item.stage.id}</p>
+              <h3>{getStageDisplayName(item.stage.id)}</h3>
               <p>{item.missionSummary}</p>
             </div>
             <div className="stage-card-meta">
@@ -53,11 +54,17 @@ export function StageSelectPage({ save, onStartStage, onHome }: StageSelectPageP
             </div>
             <button
               type="button"
-              className={item.status === 'locked' ? 'secondary-button locked-action' : 'primary-button'}
+              className={
+                item.status === 'locked' ? 'secondary-button locked-action' : 'primary-button'
+              }
               disabled={!canStartStage(save, item.stage.id)}
               onClick={() => onStartStage(item.stage.id)}
             >
-              {item.status === 'locked' ? '이전 스테이지 필요' : item.status === 'cleared' ? '다시 하기' : '시작하기'}
+              {item.status === 'locked'
+                ? '이전 스테이지 필요'
+                : item.status === 'cleared'
+                  ? '다시 하기'
+                  : '시작하기'}
             </button>
           </article>
         ))}

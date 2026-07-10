@@ -16,6 +16,10 @@ type TweenConfigWithoutTargets = Omit<
 
 const PASTEL_SPARKLE_COLORS = [0xff7fa6, 0xffd36a, 0xfffbef, 0xb9a8ff, 0x75d2bd];
 
+export function getComboDisplayText(comboCount: number): string {
+  return `${comboCount}콤보`;
+}
+
 export function shouldShowComboText(comboCount: number): boolean {
   return comboCount >= 2;
 }
@@ -44,12 +48,12 @@ export function getComboEffectDuration(comboCount: number): number {
   const tier = getComboEffectTier(comboCount);
 
   if (tier === 'haimpang') {
-    return 660;
+    return 780;
   }
   if (tier === 'celebration') {
-    return 540;
+    return 740;
   }
-  return 500;
+  return tier === 'bright' ? 710 : 680;
 }
 
 export function getEffectAnchorFromMatchedPositions(
@@ -121,41 +125,52 @@ function showComboText(
   tier: ComboEffectTier,
 ): Promise<void> {
   const duration = getComboEffectDuration(comboCount);
-  const fontSize = tier === 'soft' ? 19 : tier === 'bright' ? 22 : tier === 'celebration' ? 24 : 26;
-  const stroke = tier === 'soft' ? '#ff7fa6' : tier === 'bright' ? '#f1a82c' : '#8d77f4';
+  const fontSize = tier === 'soft' ? 23 : tier === 'bright' ? 28 : tier === 'celebration' ? 32 : 27;
+  const stroke = tier === 'soft' ? '#d94879' : tier === 'bright' ? '#c58b20' : '#6554c8';
   const rise = tier === 'soft' ? 28 : tier === 'bright' ? 34 : 40;
-  const text = scene.add.text(anchor.x, anchor.y, `${comboCount} COMBO`, {
-    fontFamily: 'Trebuchet MS, Arial, sans-serif',
+  const text = scene.add.text(0, 0, getComboDisplayText(comboCount), {
+    fontFamily: 'Pretendard, Noto Sans KR, Apple SD Gothic Neo, Segoe UI, sans-serif',
     fontSize: `${fontSize}px`,
     fontStyle: '900',
-    color: '#fff7e8',
+    color: '#fff9e9',
     stroke,
     strokeThickness: 4,
     align: 'center',
   });
+  const backing = scene.add.graphics();
+  const badgeWidth = text.width + (tier === 'soft' ? 24 : 32);
+  const badgeHeight = text.height + 16;
+  const badgeColor = tier === 'soft' ? 0x8f315c : tier === 'bright' ? 0x9b6620 : 0x514294;
+  const badge = scene.add.container(anchor.x, anchor.y, [backing, text]);
 
   text.setOrigin(0.5);
-  text.setDepth(19);
-  text.setScale(0.85);
   text.setShadow(0, 2, '#8b3651', 5, true, true);
+  backing.fillStyle(badgeColor, 0.88);
+  backing.fillRoundedRect(-badgeWidth / 2, -badgeHeight / 2, badgeWidth, badgeHeight, 14);
+  backing.lineStyle(2, 0xfff8ed, 0.82);
+  backing.strokeRoundedRect(-badgeWidth / 2, -badgeHeight / 2, badgeWidth, badgeHeight, 14);
+
+  badge.setDepth(19);
+  badge.setScale(0.85);
 
   return new Promise((resolve) => {
     scene.tweens.add({
-      targets: text,
+      targets: badge,
       scale: 1.08,
-      y: anchor.y - 6,
+      y: anchor.y - 8,
       duration: 130,
       ease: 'Back.easeOut',
       onComplete: () => {
         scene.tweens.add({
-          targets: text,
+          targets: badge,
           scale: 1,
           y: anchor.y - rise,
           alpha: 0,
-          duration: duration - 130,
+          delay: 500,
+          duration: duration - 630,
           ease: 'Cubic.easeOut',
           onComplete: () => {
-            text.destroy();
+            badge.destroy(true);
             resolve();
           },
         });
@@ -172,11 +187,11 @@ function showHaimpangBurst(
   const glow = scene.add.graphics();
   const radius = metrics.tileSize * 1.55;
   const text = scene.add.text(anchor.x, anchor.y + metrics.tileSize * 0.34, '하임팡!', {
-    fontFamily: 'Noto Sans KR, Pretendard, Arial, sans-serif',
-    fontSize: `${Math.max(28, metrics.tileSize * 0.78)}px`,
+    fontFamily: 'Pretendard, Noto Sans KR, Apple SD Gothic Neo, Segoe UI, sans-serif',
+    fontSize: `${Math.max(34, metrics.tileSize * 0.94)}px`,
     fontStyle: '900',
     color: '#fff8df',
-    stroke: '#ff7fa6',
+    stroke: '#d94879',
     strokeThickness: 6,
     align: 'center',
   });
@@ -208,7 +223,7 @@ function showHaimpangBurst(
   text.setOrigin(0.5);
   text.setDepth(20);
   text.setScale(0.82);
-  text.setShadow(0, 3, '#8b3651', 6, true, true);
+  text.setShadow(0, 3, '#8e285d', 6, true, true);
 
   return Promise.all([
     tweenAndDestroy(scene, glow, {
@@ -276,7 +291,8 @@ function tweenTextAndDestroy(
           scale: 1,
           y: targetY,
           alpha: 0,
-          duration: 500,
+          delay: 500,
+          duration: 120,
           ease: 'Cubic.easeOut',
           onComplete: () => {
             text.destroy();

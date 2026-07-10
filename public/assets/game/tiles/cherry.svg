@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="체리 젤리">
+  <defs>
+    <radialGradient id="cherry" cx="32%" cy="25%" r="78%">
+      <stop stop-color="#ff91a7"/><stop offset=".58" stop-color="#e5456c"/><stop offset="1" stop-color="#a92950"/>
+    </radialGradient>
+  </defs>
+  <path d="M62 49c1-17 6-28 18-36M66 48c10-13 20-18 33-16" fill="none" stroke="#548659" stroke-width="6" stroke-linecap="round"/>
+  <path d="M80 13c8 0 15 4 20 11-10 4-18 1-20-11Z" fill="#79b66f" stroke="#4a8252" stroke-width="3"/>
+  <circle cx="43" cy="76" r="29" fill="#86203f" opacity=".18" transform="translate(0 4)"/>
+  <circle cx="84" cy="76" r="29" fill="#86203f" opacity=".18" transform="translate(0 4)"/>
+  <circle cx="43" cy="73" r="28" fill="url(#cherry)" stroke="#9e294f" stroke-width="4"/>
+  <circle cx="84" cy="73" r="28" fill="url(#cherry)" stroke="#9e294f" stroke-width="4"/>
+  <path d="M29 58c6-8 14-11 22-8M70 58c6-8 14-11 22-8" fill="none" stroke="#ffd6df" stroke-width="7" stroke-linecap="round" opacity=".72"/>
+</svg>

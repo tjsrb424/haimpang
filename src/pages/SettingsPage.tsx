@@ -61,7 +61,9 @@ export function SettingsPage({
           <p className="eyebrow">앱 설치 안내</p>
           <h3>{installGuide.title}</h3>
           <p>{installGuide.description}</p>
-          <p className="mini-note">Android Chrome 메뉴에서 홈 화면에 추가를 선택하면 가장 자연스럽게 쓸 수 있어요.</p>
+          <p className="mini-note">
+            Android Chrome 메뉴에서 홈 화면에 추가를 선택하면 가장 자연스럽게 쓸 수 있어요.
+          </p>
         </div>
         <span className="soft-badge">{installGuide.standalone ? '실행 중' : '설치 도움말'}</span>
       </article>
@@ -84,7 +86,11 @@ export function SettingsPage({
           />
         </label>
         <div className="settings-actions">
-          <button type="button" className="secondary-button" onClick={() => onImportSave(importPayload)}>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => onImportSave(importPayload)}
+          >
             가져오기
           </button>
           <button type="button" className="danger-button" onClick={onResetSave}>
@@ -93,7 +99,7 @@ export function SettingsPage({
         </div>
       </div>
 
-      <p className="version-label">앱 버전 0.1.0 Sprint 6</p>
+      <p className="version-label">앱 버전 0.1.0 Sprint 7</p>
     </section>
   );
 }

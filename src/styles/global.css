@@ -282,23 +282,35 @@ button:disabled {
 .danger-button,
 .booster-row button,
 .coupon-action {
-  min-height: 48px;
-  border-radius: var(--radius-md);
+  min-height: 52px;
+  border-radius: 16px;
   padding: 0 14px;
   font-size: var(--font-button);
   font-weight: 900;
+  transition:
+    transform var(--motion-fast) var(--ease-soft),
+    box-shadow var(--motion-fast) var(--ease-soft);
 }
 
 .primary-button {
   background: linear-gradient(135deg, var(--color-primary), var(--color-peach));
   color: #ffffff;
-  box-shadow: 0 12px 22px rgba(255, 113, 151, 0.24);
+  box-shadow: var(--shadow-button);
 }
 
 .secondary-button {
   background: var(--color-accent-soft);
   color: #2a7568;
   border: 1px solid rgba(101, 199, 180, 0.32);
+  box-shadow: 0 3px 0 rgba(52, 122, 106, 0.12);
+}
+
+.primary-button:active,
+.secondary-button:active,
+.danger-button:active,
+.coupon-action:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(93, 50, 68, 0.12);
 }
 
 .danger-button {
@@ -1013,7 +1025,12 @@ button:disabled {
 
 .debug-panel.previewing {
   pointer-events: none;
-  opacity: 0.08;
+  opacity: 0;
+}
+
+.debug-panel.stage-finished {
+  pointer-events: none;
+  opacity: 0;
 }
 
 .debug-effect-lab {

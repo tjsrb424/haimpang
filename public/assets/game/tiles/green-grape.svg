@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="청포도 젤리">
+  <defs>
+    <radialGradient id="grape" cx="32%" cy="25%" r="76%">
+      <stop stop-color="#d8f4a6"/><stop offset=".55" stop-color="#83cf8e"/><stop offset="1" stop-color="#4aa871"/>
+    </radialGradient>
+  </defs>
+  <path d="M62 30c1-10 5-17 12-22" fill="none" stroke="#4d8552" stroke-width="5" stroke-linecap="round"/>
+  <path d="M72 11c14-3 24 1 31 11-14 7-25 3-31-11Z" fill="#9bd278" stroke="#4d8552" stroke-width="3"/>
+  <g fill="url(#grape)" stroke="#36805b" stroke-width="3">
+    <circle cx="51" cy="40" r="18"/><circle cx="76" cy="40" r="18"/>
+    <circle cx="38" cy="65" r="18"/><circle cx="64" cy="65" r="19"/><circle cx="90" cy="65" r="18"/>
+    <circle cx="51" cy="91" r="18"/><circle cx="77" cy="91" r="18"/><circle cx="64" cy="108" r="15"/>
+  </g>
+  <g fill="none" stroke="#efffd2" stroke-width="5" stroke-linecap="round" opacity=".62">
+    <path d="M43 58c3-5 7-7 12-7"/><path d="M70 57c3-5 7-7 12-7"/><path d="M44 86c3-5 7-7 12-7"/>
+  </g>
+</svg>

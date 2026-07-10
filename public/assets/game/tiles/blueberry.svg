@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="블루베리 젤리">
+  <defs>
+    <radialGradient id="blue" cx="34%" cy="24%" r="78%">
+      <stop stop-color="#a99cff"/><stop offset=".55" stop-color="#6554c8"/><stop offset="1" stop-color="#3c3187"/>
+    </radialGradient>
+  </defs>
+  <circle cx="45" cy="74" r="31" fill="#332771" opacity=".18" transform="translate(0 4)"/>
+  <circle cx="83" cy="73" r="31" fill="#332771" opacity=".18" transform="translate(0 4)"/>
+  <circle cx="64" cy="46" r="30" fill="url(#blue)" stroke="#41348f" stroke-width="4"/>
+  <circle cx="43" cy="77" r="29" fill="url(#blue)" stroke="#41348f" stroke-width="4"/>
+  <circle cx="85" cy="77" r="29" fill="url(#blue)" stroke="#41348f" stroke-width="4"/>
+  <path d="m64 24 5 9 10-2-7 8 5 9-13-5-13 5 5-9-7-8 10 2 5-9Z" fill="#d7d0ff" stroke="#5143a6" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M31 65c5-7 12-10 20-8M72 65c5-7 12-10 20-8" fill="none" stroke="#e4e0ff" stroke-width="6" stroke-linecap="round" opacity=".65"/>
+</svg>

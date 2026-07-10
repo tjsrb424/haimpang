@@ -1,15 +1,24 @@
 import { SectionHeader } from '../components/SectionHeader';
 import { achievements } from '../data/achievements';
 import type { HaimpangSave, MemoryLogCategory, MemoryLogEntry } from '../save/saveManager';
+import { getMemoryPresentation } from '../game/presentation/memoryPresentation';
 
 interface MemoryPageProps {
   save: HaimpangSave;
 }
 
 const sections: Array<{ category: MemoryLogCategory; title: string; empty: string }> = [
-  { category: 'stage_clear', title: '스테이지 클리어 기록', empty: '아직 열린 선물 상자가 없어요.' },
+  {
+    category: 'stage_clear',
+    title: '스테이지 클리어 기록',
+    empty: '아직 열린 선물 상자가 없어요.',
+  },
   { category: 'coupon_unlock', title: '쿠폰 해금 기록', empty: '새 쿠폰이 열리면 여기에 남아요.' },
-  { category: 'coupon_used', title: '쿠폰 사용 기록', empty: '쿠폰을 사용하면 작은 추억으로 저장돼요.' },
+  {
+    category: 'coupon_used',
+    title: '쿠폰 사용 기록',
+    empty: '쿠폰을 사용하면 작은 추억으로 저장돼요.',
+  },
   { category: 'system', title: '앱 기록', empty: '기본 기록이 여기에 보여요.' },
   { category: 'special', title: '특별 기록', empty: '특별한 순간을 기다리는 중이에요.' },
 ];
@@ -62,13 +71,16 @@ export function MemoryPage({ save }: MemoryPageProps) {
             </div>
             <div className="memory-list">
               {logs.length > 0 ? (
-                logs.map((log) => (
-                  <article className={`memory-card ${log.category}`} key={log.id}>
-                    <time>{formatDate(log.date)}</time>
-                    <h3>{log.title}</h3>
-                    <p>{log.description}</p>
-                  </article>
-                ))
+                logs.map((log) => {
+                  const presentation = getMemoryPresentation(log);
+                  return (
+                    <article className={`memory-card ${log.category}`} key={log.id}>
+                      <time>{formatDate(log.date)}</time>
+                      <h3>{presentation.title}</h3>
+                      <p>{presentation.description}</p>
+                    </article>
+                  );
+                })
               ) : (
                 <article className="memory-card empty">
                   <p>{section.empty}</p>

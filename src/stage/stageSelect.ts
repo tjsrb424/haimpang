@@ -1,5 +1,6 @@
 import type { StageDefinition, StageMission } from '../data/stages';
 import type { HaimpangSave } from '../save/saveManager';
+import { getMissionSummaryText } from '../game/presentation/missionPresentation';
 
 export type StageSelectStatus = 'cleared' | 'unlocked' | 'locked';
 
@@ -13,13 +14,7 @@ export interface StageSelectItem {
 }
 
 function summarizeMission(mission: StageMission): string {
-  if (mission.type === 'collect_tile') {
-    return mission.label;
-  }
-  if (mission.type === 'create_special' || mission.type === 'activate_special') {
-    return mission.label;
-  }
-  return mission.label;
+  return getMissionSummaryText(mission);
 }
 
 export function getStageSelectStatus(save: HaimpangSave, stageId: number): StageSelectStatus {
@@ -36,7 +31,10 @@ export function canStartStage(save: HaimpangSave, stageId: number): boolean {
   return getStageSelectStatus(save, stageId) !== 'locked';
 }
 
-export function getRecommendedStage(stages: StageDefinition[], save: HaimpangSave): StageDefinition {
+export function getRecommendedStage(
+  stages: StageDefinition[],
+  save: HaimpangSave,
+): StageDefinition {
   const unlocked = stages
     .filter((stage) => save.unlockedStages.includes(stage.id))
     .sort((a, b) => a.id - b.id);
@@ -50,12 +48,12 @@ export function getMissionSummary(stage: StageDefinition): string {
 }
 
 export function getRewardSummary(stage: StageDefinition): string {
-  const rewardParts = [`Stars +${stage.reward.stars}`];
+  const rewardParts = [`별 +${stage.reward.stars}`];
   if (stage.reward.hearts) {
-    rewardParts.push(`Hearts +${stage.reward.hearts}`);
+    rewardParts.push(`하트 +${stage.reward.hearts}`);
   }
   if (stage.reward.couponId) {
-    rewardParts.push('Coupon');
+    rewardParts.push('쿠폰');
   }
 
   return rewardParts.join(' · ');
@@ -67,7 +65,10 @@ export function hasSpecialMission(stage: StageDefinition): boolean {
   );
 }
 
-export function buildStageSelectItems(stages: StageDefinition[], save: HaimpangSave): StageSelectItem[] {
+export function buildStageSelectItems(
+  stages: StageDefinition[],
+  save: HaimpangSave,
+): StageSelectItem[] {
   const recommendedStage = getRecommendedStage(stages, save);
 
   return stages.map((stage) => ({

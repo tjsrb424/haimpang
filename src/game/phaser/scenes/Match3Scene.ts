@@ -28,6 +28,7 @@ import { playFeedback } from '../animation/effects';
 import { playPopBurstEffect } from '../animation/popEffects';
 import { EFFECT_LAB_EVENT, getEffectLabCue, type EffectLabCue } from '../debug/effectLab';
 import { TileView } from '../objects/TileView';
+import { GAME_COLORS } from '../../presentation/designTokens';
 import { deriveRefillSpawns, deriveTileMovements, getTileAt } from '../session/boardViewMapper';
 import {
   createGameSession,
@@ -103,6 +104,10 @@ type DebugWindow = Window & {
     lastComboEffect: string;
     firstClear: string;
     rewardPending: boolean;
+    displayObjectCount: number;
+    activeTweenCount: number;
+    averageFps: number;
+    effectObjectCount: number;
   };
 };
 
@@ -194,9 +199,18 @@ export class Match3Scene extends Phaser.Scene {
       return Promise.resolve();
     }
 
-    if (cue === 'combo-2' || cue === 'combo-5' || cue === 'combo-10-haimpang') {
-      const comboCount = cue === 'combo-2' ? 2 : cue === 'combo-5' ? 5 : 10;
-      return playComboEffect(this, comboCount, [], this.metrics);
+    if (
+      cue === 'combo-2' ||
+      cue === 'combo-5' ||
+      cue === 'combo-8' ||
+      cue === 'combo-10-haimpang'
+    ) {
+      const comboCount = cue === 'combo-2' ? 2 : cue === 'combo-5' ? 5 : cue === 'combo-8' ? 8 : 10;
+      this.lastComboCount = comboCount;
+      this.lastComboEffect = shouldShowHaimpangBurst(comboCount) ? 'haimpang' : 'combo';
+      const preview = playComboEffect(this, comboCount, [], this.metrics);
+      this.updateDebugSnapshot();
+      return preview.finally(() => this.updateDebugSnapshot());
     }
 
     const boardSize =
@@ -207,12 +221,14 @@ export class Match3Scene extends Phaser.Scene {
       y: this.metrics.originY + boardSize / 2,
     };
 
-    return playPopBurstEffect(this, {
+    const preview = playPopBurstEffect(this, {
       ...anchor,
       size: this.metrics.tileSize,
       kind: cue === 'special-pop' ? 'gift' : 'heart',
       specialKind: cue === 'special-pop' ? 'bomb' : undefined,
     });
+    this.updateDebugSnapshot();
+    return preview.finally(() => this.updateDebugSnapshot());
   }
 
   private setInputState(inputState: InputState) {
@@ -285,15 +301,26 @@ export class Match3Scene extends Phaser.Scene {
     const height = this.scale.height;
     this.background.clear();
     this.background.setDepth(0);
-    this.background.fillGradientStyle(0xfffbf7, 0xfffbf7, 0xffeef4, 0xfff3ec, 1);
+    this.background.fillGradientStyle(0xfff9ed, 0xfff3eb, 0xf5efff, 0xeef9f3, 1);
     this.background.fillRect(0, 0, width, height);
 
-    this.background.fillStyle(0xff7197, 0.11);
-    this.background.fillCircle(width * 0.16, height * 0.16, Math.min(width, height) * 0.18);
-    this.background.fillStyle(0x8f7cf7, 0.1);
-    this.background.fillCircle(width * 0.9, height * 0.2, Math.min(width, height) * 0.2);
-    this.background.fillStyle(0x65c7b4, 0.09);
-    this.background.fillCircle(width * 0.12, height * 0.9, Math.min(width, height) * 0.16);
+    this.background.fillStyle(GAME_COLORS.giftRibbon, 0.09);
+    this.background.fillCircle(width * 0.13, height * 0.14, Math.min(width, height) * 0.2);
+    this.background.fillStyle(GAME_COLORS.lavender, 0.08);
+    this.background.fillCircle(width * 0.92, height * 0.18, Math.min(width, height) * 0.22);
+    this.background.fillStyle(GAME_COLORS.mint, 0.08);
+    this.background.fillCircle(width * 0.1, height * 0.9, Math.min(width, height) * 0.17);
+
+    for (let index = 0; index < 18; index += 1) {
+      const x = ((index * 73 + 29) % 100) * 0.01 * width;
+      const y = ((index * 47 + 17) % 100) * 0.01 * height;
+      const radius = index % 3 === 0 ? 2.3 : 1.5;
+      this.background.fillStyle(
+        [GAME_COLORS.giftRibbon, GAME_COLORS.lavender, GAME_COLORS.mint][index % 3],
+        0.11,
+      );
+      this.background.fillCircle(x, y, radius);
+    }
   }
 
   private drawBoardFrame() {
@@ -306,12 +333,73 @@ export class Match3Scene extends Phaser.Scene {
 
     this.frame.clear();
     this.frame.setDepth(1);
-    this.frame.fillStyle(0xffffff, 0.72);
-    this.frame.fillRoundedRect(originX - 10, originY - 10, boardSize + 20, boardSize + 20, 24);
-    this.frame.lineStyle(2, 0xffb6c8, 0.55);
-    this.frame.strokeRoundedRect(originX - 9, originY - 9, boardSize + 18, boardSize + 18, 24);
-    this.frame.fillStyle(0xfff0f4, 0.74);
+    this.frame.fillStyle(0x8e4a64, 0.12);
+    this.frame.fillRoundedRect(originX - 13, originY - 7, boardSize + 26, boardSize + 28, 26);
+    this.frame.fillStyle(GAME_COLORS.boardCream, 0.98);
+    this.frame.fillRoundedRect(originX - 13, originY - 13, boardSize + 26, boardSize + 26, 26);
+    this.frame.lineStyle(2, 0xffffff, 0.92);
+    this.frame.strokeRoundedRect(originX - 10, originY - 10, boardSize + 20, boardSize + 20, 23);
+    this.frame.lineStyle(2, GAME_COLORS.giftRibbon, 0.42);
+    this.frame.strokeRoundedRect(originX - 12, originY - 12, boardSize + 24, boardSize + 24, 25);
+    this.frame.fillStyle(GAME_COLORS.boardInner, 0.82);
     this.frame.fillRoundedRect(originX, originY, boardSize, boardSize, 18);
+
+    const cellStride = this.metrics.tileSize + this.metrics.gap;
+    for (let row = 0; row < BOARD_HEIGHT; row += 1) {
+      for (let col = 0; col < BOARD_WIDTH; col += 1) {
+        if ((row + col) % 2 === 0) {
+          this.frame.fillStyle(0xffffff, 0.14);
+          this.frame.fillRoundedRect(
+            originX + this.metrics.gap + col * cellStride,
+            originY + this.metrics.gap + row * cellStride,
+            this.metrics.tileSize,
+            this.metrics.tileSize,
+            this.metrics.tileSize * 0.28,
+          );
+        }
+      }
+    }
+
+    this.frame.fillStyle(GAME_COLORS.cherry, 0.65);
+    this.frame.fillCircle(originX + boardSize - 4, originY - 7, 4);
+    this.frame.fillCircle(originX + boardSize + 3, originY - 4, 4);
+    this.frame.lineStyle(2, 0x5f8a55, 0.7);
+    this.frame.lineBetween(
+      originX + boardSize,
+      originY - 10,
+      originX + boardSize + 5,
+      originY - 16,
+    );
+  }
+
+  private playBoardFrameReaction(comboCount: number) {
+    if (!this.metrics || comboCount < 4) {
+      return;
+    }
+
+    const boardSize = this.metrics.tileSize * BOARD_WIDTH + this.metrics.gap * (BOARD_WIDTH + 1);
+    const glow = this.add.graphics();
+    glow.setDepth(2);
+    glow.lineStyle(
+      comboCount >= 10 ? 5 : 3,
+      comboCount >= 10 ? GAME_COLORS.comboGold : GAME_COLORS.giftRibbon,
+      comboCount >= 10 ? 0.88 : 0.58,
+    );
+    glow.strokeRoundedRect(
+      this.metrics.originX - 11,
+      this.metrics.originY - 11,
+      boardSize + 22,
+      boardSize + 22,
+      24,
+    );
+
+    this.tweens.add({
+      targets: glow,
+      alpha: { from: 0.95, to: 0 },
+      duration: comboCount >= 10 ? 620 : 280,
+      ease: 'Cubic.easeOut',
+      onComplete: () => glow.destroy(),
+    });
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer) {
@@ -570,6 +658,7 @@ export class Match3Scene extends Phaser.Scene {
           );
         });
         this.updateDebugSnapshot();
+        this.playBoardFrameReaction(cascadeIndex);
       }
       createdSpecials.push(
         ...step.specialCreations.map((creation) => ({ specialKind: creation.specialKind })),
@@ -600,6 +689,7 @@ export class Match3Scene extends Phaser.Scene {
         this.lastSpecialActivated = lastActivation.specialKind;
         this.lastSpecialAffectedCount = lastActivation.affectedPositions.length;
         await playSpecialActivationEffects(this, step.specialActivations, this.metrics);
+        this.playBoardFrameReaction(4);
       }
 
       const popViews = step.removedPositions
@@ -815,6 +905,13 @@ export class Match3Scene extends Phaser.Scene {
       lastComboEffect: this.lastComboEffect,
       firstClear: 'react-owned',
       rewardPending: this.stageSession.status === 'won',
+      displayObjectCount: this.children.list.length,
+      activeTweenCount: this.tweens.getTweens().length,
+      averageFps: Math.round(this.game.loop.actualFps || 0),
+      effectObjectCount: this.children.list.filter((child) => {
+        const depth = 'depth' in child ? child.depth : 0;
+        return typeof depth === 'number' && depth >= 10;
+      }).length,
     };
   }
 

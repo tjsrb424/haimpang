@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="라즈베리 젤리">
+  <defs>
+    <radialGradient id="rasp" cx="32%" cy="24%" r="76%">
+      <stop stop-color="#ff8bc0"/><stop offset=".56" stop-color="#d94b8d"/><stop offset="1" stop-color="#97265f"/>
+    </radialGradient>
+  </defs>
+  <path d="M45 28c5-10 12-15 19-16 7 1 14 6 19 16l-9 7-10-5-10 5-9-7Z" fill="#7fbd67" stroke="#477f50" stroke-width="3"/>
+  <g fill="url(#rasp)" stroke="#8e285d" stroke-width="3">
+    <circle cx="47" cy="43" r="17"/><circle cx="64" cy="38" r="17"/><circle cx="81" cy="43" r="17"/>
+    <circle cx="38" cy="62" r="17"/><circle cx="56" cy="58" r="17"/><circle cx="74" cy="58" r="17"/><circle cx="91" cy="62" r="17"/>
+    <circle cx="43" cy="82" r="17"/><circle cx="64" cy="79" r="18"/><circle cx="85" cy="82" r="17"/>
+    <circle cx="53" cy="100" r="16"/><circle cx="75" cy="100" r="16"/>
+  </g>
+  <path d="M34 50c5-6 10-8 16-6" fill="none" stroke="#ffd6e8" stroke-width="6" stroke-linecap="round" opacity=".68"/>
+</svg>
