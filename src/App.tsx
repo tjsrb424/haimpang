@@ -185,11 +185,7 @@ export function App() {
         />
       )}
       {activeRoute === 'game' && gameView === 'select' && (
-        <StageSelectPage
-          save={save}
-          onStartStage={startStage}
-          onHome={goHome}
-        />
+        <StageSelectPage save={save} onStartStage={startStage} onHome={goHome} />
       )}
       {activeRoute === 'game' && gameView === 'play' && (
         <GamePage
@@ -197,6 +193,7 @@ export function App() {
           runId={gameRunId}
           result={stageResult}
           vibrationEnabled={save.settings.vibration}
+          effectLabEnabled={save.settings.debugPanel}
           onStageFinished={handleStageFinished}
           onReplay={replayStage}
           onNextStage={goNextStage}

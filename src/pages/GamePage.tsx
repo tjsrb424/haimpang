@@ -13,6 +13,7 @@ interface GamePageProps {
   runId: number;
   result: StageFinishResult | null;
   vibrationEnabled: boolean;
+  effectLabEnabled: boolean;
   onStageFinished: (result: StageFinishResult) => void;
   onReplay: () => void;
   onNextStage: () => void;
@@ -30,6 +31,7 @@ export function GamePage({
   runId,
   result,
   vibrationEnabled,
+  effectLabEnabled,
   onStageFinished,
   onReplay,
   onNextStage,
@@ -71,9 +73,16 @@ export function GamePage({
 
       <div className="mission-goal mission-list">
         {summary.missionProgress.map((mission) => (
-          <div className={mission.completed ? 'mission-progress complete' : 'mission-progress'} key={mission.missionIndex}>
-            <span>{mission.completed ? 'OK' : '-'} {mission.label}</span>
-            <strong>{mission.current}/{mission.required}</strong>
+          <div
+            className={mission.completed ? 'mission-progress complete' : 'mission-progress'}
+            key={mission.missionIndex}
+          >
+            <span>
+              {mission.completed ? 'OK' : '-'} {mission.label}
+            </span>
+            <strong>
+              {mission.current}/{mission.required}
+            </strong>
           </div>
         ))}
       </div>
@@ -81,7 +90,9 @@ export function GamePage({
       <div className="board-shell">
         <div className="board-label">
           <span>8 x 8 stage board</span>
-          <span>{summary.status === 'playing' ? summary.inputState : summary.status.toUpperCase()}</span>
+          <span>
+            {summary.status === 'playing' ? summary.inputState : summary.status.toUpperCase()}
+          </span>
         </div>
         <GameHost
           key={`${stage.id}:${runId}`}
@@ -89,13 +100,16 @@ export function GamePage({
           onStageProgress={handleStageProgress}
           onStageFinished={onStageFinished}
           vibrationEnabled={vibrationEnabled}
+          effectLabEnabled={effectLabEnabled}
         />
       </div>
 
       <div className="booster-row" aria-label="Stage actions">
         <button type="button">Hint</button>
         <button type="button">Shuffle</button>
-        <button type="button" onClick={onReplay}>Replay</button>
+        <button type="button" onClick={onReplay}>
+          Replay
+        </button>
       </div>
 
       {result && (
@@ -110,16 +124,38 @@ export function GamePage({
             </p>
 
             <div className="result-summary">
-              <span>Score <strong>{result.score}</strong></span>
-              <span>Moves used <strong>{result.movesUsed}</strong></span>
-              {result.reward && <span>Stars <strong>+{result.reward.stars}</strong></span>}
-              {result.reward?.hearts && <span>Hearts <strong>+{result.reward.hearts}</strong></span>}
-              {result.reward?.couponId && <span>Coupon <strong>{result.reward.couponId}</strong></span>}
-              {result.status === 'won' && !result.firstClear && <span>Reward claimed on first clear</span>}
+              <span>
+                Score <strong>{result.score}</strong>
+              </span>
+              <span>
+                Moves used <strong>{result.movesUsed}</strong>
+              </span>
+              {result.reward && (
+                <span>
+                  Stars <strong>+{result.reward.stars}</strong>
+                </span>
+              )}
+              {result.reward?.hearts && (
+                <span>
+                  Hearts <strong>+{result.reward.hearts}</strong>
+                </span>
+              )}
+              {result.reward?.couponId && (
+                <span>
+                  Coupon <strong>{result.reward.couponId}</strong>
+                </span>
+              )}
+              {result.status === 'won' && !result.firstClear && (
+                <span>Reward claimed on first clear</span>
+              )}
             </div>
 
             <div className="result-actions">
-              <button type="button" className="primary-button" onClick={result.status === 'won' ? onNextStage : onReplay}>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={result.status === 'won' ? onNextStage : onReplay}
+              >
                 {result.status === 'won' ? 'Next stage' : 'Retry'}
               </button>
               {result.status === 'won' && result.reward?.couponId && (

@@ -9,7 +9,10 @@ export interface EffectAnchor {
   y: number;
 }
 
-type TweenConfigWithoutTargets = Omit<Phaser.Types.Tweens.TweenBuilderConfig, 'targets' | 'onComplete'>;
+type TweenConfigWithoutTargets = Omit<
+  Phaser.Types.Tweens.TweenBuilderConfig,
+  'targets' | 'onComplete'
+>;
 
 const PASTEL_SPARKLE_COLORS = [0xff7fa6, 0xffd36a, 0xfffbef, 0xb9a8ff, 0x75d2bd];
 
@@ -64,8 +67,10 @@ export function getEffectAnchorFromMatchedPositions(
 
   const total = positions.reduce(
     (accumulator, position) => {
-      const topLeftX = metrics.originX + metrics.gap + position.col * (metrics.tileSize + metrics.gap);
-      const topLeftY = metrics.originY + metrics.gap + position.row * (metrics.tileSize + metrics.gap);
+      const topLeftX =
+        metrics.originX + metrics.gap + position.col * (metrics.tileSize + metrics.gap);
+      const topLeftY =
+        metrics.originY + metrics.gap + position.row * (metrics.tileSize + metrics.gap);
 
       return {
         x: accumulator.x + topLeftX + metrics.tileSize / 2,
@@ -96,7 +101,12 @@ export function playComboEffect(
 
   if (shouldShowHaimpangBurst(comboCount)) {
     return Promise.all([
-      showComboText(scene, comboCount, { x: anchor.x, y: anchor.y - metrics.tileSize * 0.28 }, tier),
+      showComboText(
+        scene,
+        comboCount,
+        { x: anchor.x, y: anchor.y - metrics.tileSize * 0.72 },
+        tier,
+      ),
       showHaimpangBurst(scene, anchor, metrics),
     ]).then(() => undefined);
   }
@@ -161,7 +171,7 @@ function showHaimpangBurst(
 ): Promise<void> {
   const glow = scene.add.graphics();
   const radius = metrics.tileSize * 1.55;
-  const text = scene.add.text(anchor.x, anchor.y + metrics.tileSize * 0.24, '하임팡!', {
+  const text = scene.add.text(anchor.x, anchor.y + metrics.tileSize * 0.34, '하임팡!', {
     fontFamily: 'Noto Sans KR, Pretendard, Arial, sans-serif',
     fontSize: `${Math.max(28, metrics.tileSize * 0.78)}px`,
     fontStyle: '900',
@@ -213,7 +223,11 @@ function showHaimpangBurst(
   ]).then(() => undefined);
 }
 
-function spawnSparkleBurst(scene: Phaser.Scene, anchor: EffectAnchor, tileSize: number): Promise<void> {
+function spawnSparkleBurst(
+  scene: Phaser.Scene,
+  anchor: EffectAnchor,
+  tileSize: number,
+): Promise<void> {
   const graphics = scene.add.graphics();
   const radius = tileSize * 1.62;
   const dotCount = 18;

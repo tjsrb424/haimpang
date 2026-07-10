@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { BoardTile, SpecialTileKind, TileKind } from '../../core/types';
 import type { BoardLayoutMetrics } from '../../input/pointerToTile';
 import { getTileStyleByKind } from '../../ui/tileFactory';
+import { playPopBurstEffect } from '../animation/popEffects';
 
 export class TileView {
   tileId: string;
@@ -18,7 +19,12 @@ export class TileView {
   private selectedTween: Phaser.Tweens.Tween | null = null;
   private currentTileSize = 40;
 
-  constructor(scene: Phaser.Scene, tile: BoardTile, metrics: BoardLayoutMetrics, spawnRow = tile.position.row) {
+  constructor(
+    scene: Phaser.Scene,
+    tile: BoardTile,
+    metrics: BoardLayoutMetrics,
+    spawnRow = tile.position.row,
+  ) {
     this.scene = scene;
     this.tileId = tile.id;
     this.kind = tile.kind;
@@ -80,9 +86,21 @@ export class TileView {
     this.selection.clear();
 
     this.selection.lineStyle(3, 0xffffff, 0.86);
-    this.selection.strokeRoundedRect(-3, -3, metrics.tileSize + 6, metrics.tileSize + 6, radius + 3);
+    this.selection.strokeRoundedRect(
+      -3,
+      -3,
+      metrics.tileSize + 6,
+      metrics.tileSize + 6,
+      radius + 3,
+    );
     this.selection.lineStyle(2, style.stroke, 0.78);
-    this.selection.strokeRoundedRect(-6, -6, metrics.tileSize + 12, metrics.tileSize + 12, radius + 6);
+    this.selection.strokeRoundedRect(
+      -6,
+      -6,
+      metrics.tileSize + 12,
+      metrics.tileSize + 12,
+      radius + 6,
+    );
     this.selection.setVisible(false);
 
     this.graphics.fillStyle(style.shadow, 0.15);
@@ -100,7 +118,13 @@ export class TileView {
       this.graphics.closePath();
       this.graphics.fillPath();
     } else if (style.shape === 'pill') {
-      this.graphics.fillRoundedRect(2, metrics.tileSize * 0.12, metrics.tileSize - 4, metrics.tileSize * 0.76, metrics.tileSize * 0.38);
+      this.graphics.fillRoundedRect(
+        2,
+        metrics.tileSize * 0.12,
+        metrics.tileSize - 4,
+        metrics.tileSize * 0.76,
+        metrics.tileSize * 0.38,
+      );
     } else {
       this.graphics.fillRoundedRect(0, 0, metrics.tileSize, metrics.tileSize, radius);
     }
@@ -108,7 +132,11 @@ export class TileView {
     this.graphics.lineStyle(2, style.stroke, 0.52);
     this.graphics.strokeRoundedRect(1, 1, metrics.tileSize - 2, metrics.tileSize - 2, radius);
     this.graphics.fillStyle(0xffffff, 0.24);
-    this.graphics.fillCircle(metrics.tileSize * 0.32, metrics.tileSize * 0.26, Math.max(2, metrics.tileSize * 0.09));
+    this.graphics.fillCircle(
+      metrics.tileSize * 0.32,
+      metrics.tileSize * 0.26,
+      Math.max(2, metrics.tileSize * 0.09),
+    );
     this.drawSpecialOverlay(metrics);
 
     this.label.setText(style.label);
@@ -131,7 +159,13 @@ export class TileView {
 
     if (this.specialKind === 'line_horizontal') {
       this.graphics.fillStyle(0xffffff, 0.78);
-      this.graphics.fillRoundedRect(size * 0.14, center - size * 0.09, size * 0.72, size * 0.18, size * 0.09);
+      this.graphics.fillRoundedRect(
+        size * 0.14,
+        center - size * 0.09,
+        size * 0.72,
+        size * 0.18,
+        size * 0.09,
+      );
       this.graphics.lineStyle(2, 0xff7197, 0.74);
       this.graphics.lineBetween(size * 0.2, center, size * 0.8, center);
       return;
@@ -139,7 +173,13 @@ export class TileView {
 
     if (this.specialKind === 'line_vertical') {
       this.graphics.fillStyle(0xffffff, 0.78);
-      this.graphics.fillRoundedRect(center - size * 0.09, size * 0.14, size * 0.18, size * 0.72, size * 0.09);
+      this.graphics.fillRoundedRect(
+        center - size * 0.09,
+        size * 0.14,
+        size * 0.18,
+        size * 0.72,
+        size * 0.09,
+      );
       this.graphics.lineStyle(2, 0xff7197, 0.74);
       this.graphics.lineBetween(center, size * 0.2, center, size * 0.8);
       return;
@@ -171,7 +211,13 @@ export class TileView {
     ] as const) {
       this.graphics.lineStyle(2, color, 0.9);
       this.graphics.beginPath();
-      this.graphics.arc(center, center + size * offset, size * 0.22, Math.PI * 0.08, Math.PI * 0.92);
+      this.graphics.arc(
+        center,
+        center + size * offset,
+        size * 0.22,
+        Math.PI * 0.08,
+        Math.PI * 0.92,
+      );
       this.graphics.strokePath();
     }
   }
@@ -181,7 +227,11 @@ export class TileView {
     this.container.setPosition(position.x, position.y);
   }
 
-  static toScenePosition(row: number, col: number, metrics: BoardLayoutMetrics): { x: number; y: number } {
+  static toScenePosition(
+    row: number,
+    col: number,
+    metrics: BoardLayoutMetrics,
+  ): { x: number; y: number } {
     return {
       x: metrics.originX + metrics.gap + col * (metrics.tileSize + metrics.gap),
       y: metrics.originY + metrics.gap + row * (metrics.tileSize + metrics.gap),
@@ -194,22 +244,14 @@ export class TileView {
       this.selectedTween = null;
     }
 
-    const burst = this.createPopBurst();
-    const burstDuration = this.specialKind ? 270 : 230;
     const shrinkDuration = this.specialKind ? 150 : 130;
-
-    const burstTween = new Promise<void>((resolve) => {
-      this.scene.tweens.add({
-        targets: burst,
-        scale: { from: 0.72, to: this.specialKind ? 1.28 : 1.12 },
-        alpha: { from: 0.96, to: 0 },
-        duration: burstDuration,
-        ease: 'Cubic.easeOut',
-        onComplete: () => {
-          burst.destroy();
-          resolve();
-        },
-      });
+    const center = this.currentTileSize / 2;
+    const burstTween = playPopBurstEffect(this.scene, {
+      x: this.container.x + center,
+      y: this.container.y + center,
+      size: this.currentTileSize,
+      kind: this.kind,
+      specialKind: this.specialKind,
     });
 
     const tileTween = new Promise<void>((resolve) => {
@@ -235,49 +277,6 @@ export class TileView {
     });
 
     return Promise.all([burstTween, tileTween]).then(() => undefined);
-  }
-
-  private createPopBurst(): Phaser.GameObjects.Graphics {
-    const style = getTileStyleByKind(this.kind);
-    const size = this.currentTileSize;
-    const center = size / 2;
-    const radius = size * (this.specialKind ? 0.74 : 0.56);
-    const dotCount = this.specialKind ? 10 : 6;
-    const rayCount = this.specialKind ? 8 : 4;
-    const graphics = this.scene.add.graphics();
-
-    graphics.setDepth(this.specialKind ? 14 : 10);
-    graphics.setPosition(this.container.x + center, this.container.y + center);
-    graphics.lineStyle(this.specialKind ? 3 : 2, 0xffffff, this.specialKind ? 0.82 : 0.66);
-    graphics.strokeCircle(0, 0, radius * 0.44);
-    graphics.lineStyle(2, style.stroke, this.specialKind ? 0.58 : 0.4);
-    graphics.strokeCircle(0, 0, radius * 0.72);
-
-    for (let index = 0; index < rayCount; index += 1) {
-      const angle = (Math.PI * 2 * index) / rayCount + 0.18;
-      const inner = radius * 0.36;
-      const outer = radius * (this.specialKind ? 1.06 : 0.92);
-
-      graphics.lineStyle(this.specialKind ? 3 : 2, index % 2 === 0 ? 0xfffbef : style.fill, 0.62);
-      graphics.lineBetween(
-        Math.cos(angle) * inner,
-        Math.sin(angle) * inner,
-        Math.cos(angle) * outer,
-        Math.sin(angle) * outer,
-      );
-    }
-
-    for (let index = 0; index < dotCount; index += 1) {
-      const angle = (Math.PI * 2 * index) / dotCount + (this.specialKind ? 0.1 : 0.32);
-      const distance = radius * (0.72 + (index % 3) * 0.12);
-      const dotRadius = Math.max(2, size * (this.specialKind && index % 2 === 0 ? 0.09 : 0.065));
-      const color = index % 3 === 0 ? 0xfffbef : index % 2 === 0 ? style.fill : style.stroke;
-
-      graphics.fillStyle(color, index % 3 === 0 ? 0.95 : 0.78);
-      graphics.fillCircle(Math.cos(angle) * distance, Math.sin(angle) * distance, dotRadius);
-    }
-
-    return graphics;
   }
 
   destroy(): void {

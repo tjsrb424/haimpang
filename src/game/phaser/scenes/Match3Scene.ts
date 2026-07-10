@@ -5,7 +5,13 @@ import { getTile } from '../../core/board';
 import { resolveMoveWithSpecials } from '../../core/moveResolution';
 import { findPossibleMoves } from '../../core/shuffle';
 import { SPECIAL_SCORE_BONUS } from '../../core/special';
-import type { BoardPosition, BoardTile, CascadeResult, SpecialTileKind, TileKind } from '../../core/types';
+import type {
+  BoardPosition,
+  BoardTile,
+  CascadeResult,
+  SpecialTileKind,
+  TileKind,
+} from '../../core/types';
 import { canAcceptBoardInput, canStartGesture, type InputState } from '../../input/inputState';
 import { pointerToTile, type BoardLayoutMetrics } from '../../input/pointerToTile';
 import { detectSwipeDirection, type SwipeDirection } from '../../input/swipeDetector';
@@ -19,12 +25,10 @@ import {
 } from '../animation/boardTweens';
 import { playComboEffect, shouldShowHaimpangBurst } from '../animation/comboEffects';
 import { playFeedback } from '../animation/effects';
+import { playPopBurstEffect } from '../animation/popEffects';
+import { EFFECT_LAB_EVENT, getEffectLabCue, type EffectLabCue } from '../debug/effectLab';
 import { TileView } from '../objects/TileView';
-import {
-  deriveRefillSpawns,
-  deriveTileMovements,
-  getTileAt,
-} from '../session/boardViewMapper';
+import { deriveRefillSpawns, deriveTileMovements, getTileAt } from '../session/boardViewMapper';
 import {
   createGameSession,
   scoreRemovedTiles,
@@ -66,9 +70,11 @@ export interface Match3SceneOptions {
   onStageProgress?: (summary: StageProgressSummary) => void;
   onStageFinished?: (result: StageFinishResult) => void;
   vibrationEnabled?: boolean;
+  effectLabEnabled?: boolean;
 }
 
 type DebugWindow = Window & {
+  __haimpangDebugOwner?: Match3Scene;
   __haimpangDebug?: {
     inputState: InputState;
     selectedTile: string;
@@ -115,6 +121,7 @@ export class Match3Scene extends Phaser.Scene {
   private lastSpecialAffectedCount = 0;
   private lastComboCount = 0;
   private lastComboEffect = 'none';
+  private effectLabActive = false;
 
   constructor(options: Match3SceneOptions = {}) {
     super('Match3Scene');
@@ -126,6 +133,7 @@ export class Match3Scene extends Phaser.Scene {
     this.session = createGameSession(stage.seed, stage.tileKinds);
     this.stageSession = createStageSession(stage);
     this.finishPublished = false;
+    this.effectLabActive = true;
     this.renderBoard();
     this.publishSession();
     this.publishStageProgress();
@@ -136,20 +144,75 @@ export class Match3Scene extends Phaser.Scene {
     this.input.on('pointerup', this.handlePointerUp, this);
     this.input.on('pointerupoutside', this.handlePointerUp, this);
     this.scale.on('resize', this.handleResize, this);
+    window.addEventListener(EFFECT_LAB_EVENT, this.handleEffectLabCue);
 
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.input.off('pointerdown', this.handlePointerDown, this);
-      this.input.off('pointermove', this.handlePointerMove, this);
-      this.input.off('pointerup', this.handlePointerUp, this);
-      this.input.off('pointerupoutside', this.handlePointerUp, this);
-      this.scale.off('resize', this.handleResize, this);
-      this.destroyTileViews();
-    });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleSceneShutdown, this);
+    this.events.once(Phaser.Scenes.Events.DESTROY, this.handleSceneShutdown, this);
+  }
+
+  private handleSceneShutdown() {
+    if (!this.effectLabActive) {
+      return;
+    }
+
+    this.effectLabActive = false;
+    this.input.off('pointerdown', this.handlePointerDown, this);
+    this.input.off('pointermove', this.handlePointerMove, this);
+    this.input.off('pointerup', this.handlePointerUp, this);
+    this.input.off('pointerupoutside', this.handlePointerUp, this);
+    this.scale.off('resize', this.handleResize, this);
+    window.removeEventListener(EFFECT_LAB_EVENT, this.handleEffectLabCue);
+    this.destroyTileViews();
+
+    const debugWindow = window as DebugWindow;
+    if (debugWindow.__haimpangDebugOwner === this) {
+      delete debugWindow.__haimpangDebug;
+      delete debugWindow.__haimpangDebugOwner;
+    }
   }
 
   private handleResize() {
     this.renderBoard();
     this.updateDebugSnapshot();
+  }
+
+  private handleEffectLabCue = (event: Event) => {
+    if (!this.options.effectLabEnabled || !this.metrics || !this.effectLabActive) {
+      return;
+    }
+
+    const cue = getEffectLabCue(event);
+    if (!cue) {
+      return;
+    }
+
+    void this.playEffectLabCue(cue);
+  };
+
+  private playEffectLabCue(cue: EffectLabCue): Promise<void> {
+    if (!this.metrics) {
+      return Promise.resolve();
+    }
+
+    if (cue === 'combo-2' || cue === 'combo-5' || cue === 'combo-10-haimpang') {
+      const comboCount = cue === 'combo-2' ? 2 : cue === 'combo-5' ? 5 : 10;
+      return playComboEffect(this, comboCount, [], this.metrics);
+    }
+
+    const boardSize =
+      this.metrics.tileSize * this.metrics.boardWidth +
+      this.metrics.gap * (this.metrics.boardWidth + 1);
+    const anchor = {
+      x: this.metrics.originX + boardSize / 2,
+      y: this.metrics.originY + boardSize / 2,
+    };
+
+    return playPopBurstEffect(this, {
+      ...anchor,
+      size: this.metrics.tileSize,
+      kind: cue === 'special-pop' ? 'gift' : 'heart',
+      specialKind: cue === 'special-pop' ? 'bomb' : undefined,
+    });
   }
 
   private setInputState(inputState: InputState) {
@@ -158,7 +221,10 @@ export class Match3Scene extends Phaser.Scene {
     }
 
     this.session.inputState = inputState;
-    this.session.isBusy = !canAcceptBoardInput(inputState) && inputState !== 'POINTER_DOWN' && inputState !== 'DRAGGING';
+    this.session.isBusy =
+      !canAcceptBoardInput(inputState) &&
+      inputState !== 'POINTER_DOWN' &&
+      inputState !== 'DRAGGING';
     this.updateDebugSnapshot();
   }
 
@@ -276,7 +342,12 @@ export class Match3Scene extends Phaser.Scene {
   }
 
   private handlePointerMove(pointer: Phaser.Input.Pointer) {
-    if (!this.session || !this.metrics || !this.pointerGesture || this.pointerGesture.swipeHandled) {
+    if (
+      !this.session ||
+      !this.metrics ||
+      !this.pointerGesture ||
+      this.pointerGesture.swipeHandled
+    ) {
       return;
     }
 
@@ -371,7 +442,12 @@ export class Match3Scene extends Phaser.Scene {
   }
 
   private async attemptSwap(from: BoardPosition, to: BoardPosition): Promise<void> {
-    if (!this.session || !this.stageSession || !this.metrics || this.stageSession.status !== 'playing') {
+    if (
+      !this.session ||
+      !this.stageSession ||
+      !this.metrics ||
+      this.stageSession.status !== 'playing'
+    ) {
       return;
     }
 
@@ -397,10 +473,14 @@ export class Match3Scene extends Phaser.Scene {
     }
 
     this.setInputState('SWAP_ATTEMPT');
-    const resolution = resolveMoveWithSpecials(this.session.board, { from, to }, {
-      seed: `${this.session.seed}:move:${this.stageSession.movesUsed + 1}`,
-      tileKinds: this.getStage().tileKinds,
-    });
+    const resolution = resolveMoveWithSpecials(
+      this.session.board,
+      { from, to },
+      {
+        seed: `${this.session.seed}:move:${this.stageSession.movesUsed + 1}`,
+        tileKinds: this.getStage().tileKinds,
+      },
+    );
 
     if (!resolution.valid) {
       this.setInputState('INVALID_ROLLBACK');
@@ -476,7 +556,10 @@ export class Match3Scene extends Phaser.Scene {
       const cascadeIndex = index + 1;
       this.session.lastMatches = step.matches;
       this.setInputState('POPPING');
-      playFeedback(step.specialActivations.length > 0 ? 'special-pop' : 'pop', this.options.vibrationEnabled);
+      playFeedback(
+        step.specialActivations.length > 0 ? 'special-pop' : 'pop',
+        this.options.vibrationEnabled,
+      );
       if (cascadeIndex >= 2) {
         this.lastComboCount = cascadeIndex;
         this.lastComboEffect = shouldShowHaimpangBurst(cascadeIndex) ? 'haimpang' : 'combo';
@@ -580,7 +663,13 @@ export class Match3Scene extends Phaser.Scene {
           if (!view || !this.metrics) {
             return Promise.resolve();
           }
-          return moveTileView(this, view, { row: view.row, col: view.col }, this.metrics, EFFECT_TIMINGS.refillMs);
+          return moveTileView(
+            this,
+            view,
+            { row: view.row, col: view.col },
+            this.metrics,
+            EFFECT_TIMINGS.refillMs,
+          );
         }),
       );
 
@@ -650,7 +739,9 @@ export class Match3Scene extends Phaser.Scene {
       return;
     }
 
-    this.options.onStageProgress?.(toStageProgressSummary(this.stageSession, this.session.inputState));
+    this.options.onStageProgress?.(
+      toStageProgressSummary(this.stageSession, this.session.inputState),
+    );
     this.updateDebugSnapshot();
   }
 
@@ -692,7 +783,9 @@ export class Match3Scene extends Phaser.Scene {
       0,
     );
 
-    (window as DebugWindow).__haimpangDebug = {
+    const debugWindow = window as DebugWindow;
+    debugWindow.__haimpangDebugOwner = this;
+    debugWindow.__haimpangDebug = {
       inputState: this.session.inputState,
       selectedTile,
       pointerDownTile,

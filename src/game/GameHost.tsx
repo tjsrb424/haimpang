@@ -10,6 +10,7 @@ interface GameHostProps {
   onStageProgress?: (summary: StageProgressSummary) => void;
   onStageFinished?: (result: StageFinishResult) => void;
   vibrationEnabled?: boolean;
+  effectLabEnabled?: boolean;
 }
 
 export function GameHost({
@@ -18,6 +19,7 @@ export function GameHost({
   onStageProgress,
   onStageFinished,
   vibrationEnabled = true,
+  effectLabEnabled = false,
 }: GameHostProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const callbacksRef = useRef({
@@ -45,12 +47,13 @@ export function GameHost({
       onStageProgress: (summary) => callbacksRef.current.onStageProgress?.(summary),
       onStageFinished: (result) => callbacksRef.current.onStageFinished?.(result),
       vibrationEnabled,
+      effectLabEnabled,
     });
 
     return () => {
       game.destroy(true);
     };
-  }, [stage, vibrationEnabled]);
+  }, [effectLabEnabled, stage, vibrationEnabled]);
 
   return <div ref={hostRef} className="game-host" aria-label="HAIMPANG match-3 board" />;
 }
